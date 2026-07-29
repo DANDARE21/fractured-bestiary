@@ -12,6 +12,9 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+import net.dandare21.fracturedutils.command.MaintenanceCommands;
+import net.dandare21.fracturedutils.maintenance.MaintenanceManager;
+
 @Mod.EventBusSubscriber(modid = FracturedUtils.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class ServerEventHandler {
 
@@ -25,11 +28,14 @@ public class ServerEventHandler {
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         WaitingRoomCommands.register(event.getDispatcher());
+        MaintenanceCommands.register(event.getDispatcher());
     }
 
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            MaintenanceManager.getInstance().checkAndKickOnJoin(player);
+
             WaitingRoomManager mgr = WaitingRoomManager.getInstance();
             if (mgr.isActive()) {
                 mgr.syncToPlayer(player);
