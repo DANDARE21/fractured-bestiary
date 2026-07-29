@@ -1,0 +1,15 @@
+{
+  "gui.fracturedutils.waiting_room.title": "Event Waiting Room",
+  "gui.fracturedutils.waiting_room.players_joined": "👥 PLAYERS JOINED (%d/%d)",
+  "gui.fracturedutils.waiting_room.hud_players": "👥 PLAYERS: %d/%d",
+  "gui.fracturedutils.waiting_room.waiting": "WAITING",
+  "gui.fracturedutils.waiting_room.starting": "STARTING",
+  "gui.fracturedutils.waiting_room.chat_title": "💬 CHAT",
+  "gui.fracturedutils.waiting_room.chat_hint": "Type a message...",
+  "gui.fracturedutils.waiting_room.ready_up": "READY UP!",
+  "gui.fracturedutils.waiting_room.cancel": "CANCEL",
+  "gui.fracturedutils.waiting_room.press": "PRESS",
+  "gui.fracturedutils.waiting_room.hold": "HOLD",
+  "gui.fracturedutils.waiting_room.enter_prompt": "] ENTER EVENT WAITING ROOM (NO GOING BACK!)",
+  "gui.fracturedutils.waiting_room.starting_in": "STARTING IN %02d:%02d"
+}

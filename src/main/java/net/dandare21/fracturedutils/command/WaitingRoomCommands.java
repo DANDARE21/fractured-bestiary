@@ -1,6 +1,7 @@
 package net.dandare21.fracturedutils.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 
@@ -19,6 +20,11 @@ public class WaitingRoomCommands {
                         .executes(ctx -> startWaitingRoom(ctx, "Starting Soon..."))
                         .then(Commands.argument("title", StringArgumentType.greedyString())
                                 .executes(ctx -> startWaitingRoom(ctx, StringArgumentType.getString(ctx, "title")))))
+                .then(Commands.literal("countdown")
+                        .requires(s -> s.hasPermission(2))
+                        .executes(ctx -> startCountdown(ctx, 10))
+                        .then(Commands.argument("seconds", IntegerArgumentType.integer(1, 300))
+                                .executes(ctx -> startCountdown(ctx, IntegerArgumentType.getInteger(ctx, "seconds")))))
                 .then(Commands.literal("stop")
                         .requires(s -> s.hasPermission(2))
                         .executes(WaitingRoomCommands::stopWaitingRoom))
@@ -38,6 +44,12 @@ public class WaitingRoomCommands {
     private static int startWaitingRoom(CommandContext<CommandSourceStack> ctx, String title) {
         WaitingRoomManager.getInstance().start(ctx.getSource().getServer(), title);
         ctx.getSource().sendSuccess(() -> Component.literal("Event waiting room started with title: " + title).withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
+    private static int startCountdown(CommandContext<CommandSourceStack> ctx, int seconds) {
+        WaitingRoomManager.getInstance().startCountdown(ctx.getSource().getServer(), seconds);
+        ctx.getSource().sendSuccess(() -> Component.literal("Started waiting room countdown: " + seconds + " second(s).").withStyle(ChatFormatting.GOLD), true);
         return 1;
     }
 

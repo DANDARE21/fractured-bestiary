@@ -1,0 +1,15 @@
+{
+  "gui.fracturedutils.waiting_room.title": "Sala de Espera del Evento",
+  "gui.fracturedutils.waiting_room.players_joined": "👥 JUGADORES UNIDOS (%d/%d)",
+  "gui.fracturedutils.waiting_room.hud_players": "👥 JUGADORES: %d/%d",
+  "gui.fracturedutils.waiting_room.waiting": "ESPERANDO",
+  "gui.fracturedutils.waiting_room.starting": "INICIANDO",
+  "gui.fracturedutils.waiting_room.chat_title": "💬 CHAT",
+  "gui.fracturedutils.waiting_room.chat_hint": "Escribe un mensaje...",
+  "gui.fracturedutils.waiting_room.ready_up": "¡LISTO!",
+  "gui.fracturedutils.waiting_room.cancel": "CANCELAR",
+  "gui.fracturedutils.waiting_room.press": "PRESIONA",
+  "gui.fracturedutils.waiting_room.hold": "MANTÉN",
+  "gui.fracturedutils.waiting_room.enter_prompt": "] ENTRAR A LA SALA DE ESPERA (¡SIN VUELTA ATRÁS!)",
+  "gui.fracturedutils.waiting_room.starting_in": "INICIANDO EN %02d:%02d"
+}

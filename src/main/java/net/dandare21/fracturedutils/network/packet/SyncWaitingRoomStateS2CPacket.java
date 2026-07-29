@@ -17,18 +17,27 @@ public class SyncWaitingRoomStateS2CPacket {
     private final List<String> playerNames;
     private final List<UUID> playerUUIDs;
     private final List<Boolean> playerReadyStates;
+    private final long elapsedSeconds;
+    private final boolean isCountingDown;
+    private final long countdownRemainingSeconds;
 
-    public SyncWaitingRoomStateS2CPacket(boolean active, String roomTitle, List<String> playerNames, List<UUID> playerUUIDs, List<Boolean> playerReadyStates) {
+    public SyncWaitingRoomStateS2CPacket(boolean active, String roomTitle, List<String> playerNames, List<UUID> playerUUIDs, List<Boolean> playerReadyStates, long elapsedSeconds, boolean isCountingDown, long countdownRemainingSeconds) {
         this.active = active;
         this.roomTitle = roomTitle;
         this.playerNames = playerNames;
         this.playerUUIDs = playerUUIDs;
         this.playerReadyStates = playerReadyStates;
+        this.elapsedSeconds = elapsedSeconds;
+        this.isCountingDown = isCountingDown;
+        this.countdownRemainingSeconds = countdownRemainingSeconds;
     }
 
     public SyncWaitingRoomStateS2CPacket(FriendlyByteBuf buf) {
         this.active = buf.readBoolean();
         this.roomTitle = buf.readUtf();
+        this.elapsedSeconds = buf.readVarLong();
+        this.isCountingDown = buf.readBoolean();
+        this.countdownRemainingSeconds = buf.readVarLong();
         int size = buf.readVarInt();
         this.playerNames = new ArrayList<>(size);
         this.playerUUIDs = new ArrayList<>(size);
@@ -43,6 +52,9 @@ public class SyncWaitingRoomStateS2CPacket {
     public void encode(FriendlyByteBuf buf) {
         buf.writeBoolean(this.active);
         buf.writeUtf(this.roomTitle != null ? this.roomTitle : "Starting Soon...");
+        buf.writeVarLong(this.elapsedSeconds);
+        buf.writeBoolean(this.isCountingDown);
+        buf.writeVarLong(this.countdownRemainingSeconds);
         buf.writeVarInt(this.playerNames.size());
         for (int i = 0; i < this.playerNames.size(); i++) {
             buf.writeUtf(this.playerNames.get(i));
@@ -54,7 +66,7 @@ public class SyncWaitingRoomStateS2CPacket {
     public void handle(Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
         context.enqueueWork(() -> {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPacketHandler.handleSyncState(active, roomTitle, playerNames, playerUUIDs, playerReadyStates));
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPacketHandler.handleSyncState(active, roomTitle, playerNames, playerUUIDs, playerReadyStates, elapsedSeconds, isCountingDown, countdownRemainingSeconds));
         });
         context.setPacketHandled(true);
     }

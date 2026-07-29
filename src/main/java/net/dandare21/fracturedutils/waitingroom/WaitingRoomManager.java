@@ -19,6 +19,9 @@ public class WaitingRoomManager {
 
     private boolean active = false;
     private String roomTitle = "Starting Soon...";
+    private long startTimeMs = 0;
+    private boolean countingDown = false;
+    private long countdownEndMs = 0;
     private final Set<UUID> joinedPlayers = new HashSet<>();
     private final Set<UUID> readyPlayers = new HashSet<>();
 
@@ -28,6 +31,15 @@ public class WaitingRoomManager {
 
     public boolean isActive() {
         return active;
+    }
+
+    public boolean isCountingDown() {
+        return active && countingDown;
+    }
+
+    public long getCountdownRemainingSeconds() {
+        if (!active || !countingDown) return 0;
+        return Math.max(0, (countdownEndMs - System.currentTimeMillis() + 999) / 1000);
     }
 
     public String getRoomTitle() {
@@ -48,7 +60,10 @@ public class WaitingRoomManager {
 
     public void start(MinecraftServer server, String title) {
         this.active = true;
+        this.countingDown = false;
+        this.countdownEndMs = 0;
         this.roomTitle = (title != null && !title.isBlank()) ? title : "Starting Soon...";
+        this.startTimeMs = System.currentTimeMillis();
         this.joinedPlayers.clear();
         this.readyPlayers.clear();
 
@@ -62,12 +77,35 @@ public class WaitingRoomManager {
                 .append(Component.literal(" to enter the waiting room screen (No going back!).").withStyle(ChatFormatting.YELLOW));
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.sendSystemMessage(announcement);
+            if (player.hasPermissions(2)) {
+                player.sendSystemMessage(announcement);
+            }
+        }
+    }
+
+    public void startCountdown(MinecraftServer server, int seconds) {
+        if (!this.active) {
+            start(server, "Starting Soon...");
+        }
+        this.countingDown = true;
+        this.countdownEndMs = System.currentTimeMillis() + (seconds * 1000L);
+        syncToAll(server);
+    }
+
+    public void tick(MinecraftServer server) {
+        if (this.active && this.countingDown) {
+            long remainingMs = this.countdownEndMs - System.currentTimeMillis();
+            if (remainingMs <= 0) {
+                stop(server);
+            }
         }
     }
 
     public void stop(MinecraftServer server) {
         this.active = false;
+        this.countingDown = false;
+        this.countdownEndMs = 0;
+        this.startTimeMs = 0;
         this.joinedPlayers.clear();
         this.readyPlayers.clear();
         syncToAll(server);
@@ -77,7 +115,9 @@ public class WaitingRoomManager {
                 .append(Component.literal("The waiting room has been CLOSED.").withStyle(ChatFormatting.RED));
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.sendSystemMessage(announcement);
+            if (player.hasPermissions(2)) {
+                player.sendSystemMessage(announcement);
+            }
         }
     }
 
@@ -93,7 +133,7 @@ public class WaitingRoomManager {
     public boolean toggleReady(ServerPlayer player) {
         if (!active) return false;
         UUID uuid = player.getUUID();
-        joinedPlayers.add(uuid); // Ensure player is in joined list
+        joinedPlayers.add(uuid);
 
         boolean isNowReady;
         if (readyPlayers.contains(uuid)) {
@@ -152,6 +192,8 @@ public class WaitingRoomManager {
             }
         }
 
-        return new SyncWaitingRoomStateS2CPacket(active, roomTitle, playerNames, playerUUIDs, readyStates);
+        long elapsedSeconds = active ? Math.max(0, (System.currentTimeMillis() - startTimeMs) / 1000) : 0;
+        long countdownRemaining = isCountingDown() ? getCountdownRemainingSeconds() : 0;
+        return new SyncWaitingRoomStateS2CPacket(active, roomTitle, playerNames, playerUUIDs, readyStates, elapsedSeconds, countingDown, countdownRemaining);
     }
 }

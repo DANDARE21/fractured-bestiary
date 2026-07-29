@@ -8,8 +8,8 @@ import java.util.UUID;
 
 public class ClientPacketHandler {
 
-    public static void handleSyncState(boolean active, String roomTitle, List<String> playerNames, List<UUID> playerUUIDs, List<Boolean> playerReadyStates) {
-        ClientWaitingRoomData.updateState(active, roomTitle, playerNames, playerUUIDs, playerReadyStates);
+    public static void handleSyncState(boolean active, String roomTitle, List<String> playerNames, List<UUID> playerUUIDs, List<Boolean> playerReadyStates, long elapsedSeconds, boolean isCountingDown, long countdownRemainingSeconds) {
+        ClientWaitingRoomData.updateState(active, roomTitle, playerNames, playerUUIDs, playerReadyStates, elapsedSeconds, isCountingDown, countdownRemainingSeconds);
         Minecraft mc = Minecraft.getInstance();
         if (!active && mc.screen instanceof WaitingRoomScreen) {
             mc.setScreen(null);
