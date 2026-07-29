@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Server",
+      "type": "shell",
+      "command": ".\\gradlew.bat runServer",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Client - Player1 (OP)",
+      "type": "shell",
+      "command": ".\\gradlew.bat runClientPlayer1",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Client - Player2 (Non-OP)",
+      "type": "shell",
+      "command": ".\\gradlew.bat runClientPlayer2",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Full Multiplayer Environment",
+      "type": "shell",
+      "command": ".\\run_multiplayer.ps1",
+      "problemMatcher": []
+    }
+  ]
+}
