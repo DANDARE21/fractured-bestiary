@@ -90,6 +90,16 @@ public class WaitingRoomManager {
         this.countingDown = true;
         this.countdownEndMs = System.currentTimeMillis() + (seconds * 1000L);
         syncToAll(server);
+
+        if (server != null) {
+            Component announcement = Component.literal("[Event Waiting Room] ")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                    .append(Component.literal("Starting in " + seconds + " second(s)!").withStyle(ChatFormatting.YELLOW));
+
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                player.sendSystemMessage(announcement);
+            }
+        }
     }
 
     public void tick(MinecraftServer server) {
@@ -131,7 +141,7 @@ public class WaitingRoomManager {
     }
 
     public boolean toggleReady(ServerPlayer player) {
-        if (!active) return false;
+        if (!active || countingDown) return false;
         UUID uuid = player.getUUID();
         joinedPlayers.add(uuid);
 

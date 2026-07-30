@@ -92,4 +92,12 @@ public class ClientWaitingRoomData {
         }
         return false;
     }
+
+    public static synchronized boolean isEveryoneReady() {
+        if (!active || playerReadyStates.isEmpty()) return false;
+        for (Boolean ready : playerReadyStates) {
+            if (!ready) return false;
+        }
+        return true;
+    }
 }

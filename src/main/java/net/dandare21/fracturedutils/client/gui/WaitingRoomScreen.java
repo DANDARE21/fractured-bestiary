@@ -697,17 +697,28 @@ public class WaitingRoomScreen extends Screen {
 
         @Override
         public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+            boolean isCountdown = ClientWaitingRoomData.isCountingDown();
+            this.active = !isCountdown;
+
             Minecraft mc = Minecraft.getInstance();
             UUID selfUUID = mc.player != null ? mc.player.getUUID() : null;
             boolean isReady = ClientWaitingRoomData.isSelfReady(selfUUID);
-            boolean isHovered = this.isHoveredOrFocused();
+            boolean isHovered = this.active && this.isHoveredOrFocused();
 
             Component buttonText;
             int borderColor;
             int fillColor;
             int textColor;
 
-            if (isReady) {
+            if (!this.active) {
+                // Disabled / Locked state during countdown
+                buttonText = isReady
+                        ? Component.translatable("gui.fracturedutils.waiting_room.cancel")
+                        : Component.translatable("gui.fracturedutils.waiting_room.ready_up");
+                borderColor = 0xAA445566;
+                fillColor = 0xEE0A0F14;
+                textColor = 0xFF556677;
+            } else if (isReady) {
                 // CANCEL state
                 buttonText = Component.translatable("gui.fracturedutils.waiting_room.cancel");
                 borderColor = isHovered ? 0xFFFF5577 : RED_NOT_READY;
