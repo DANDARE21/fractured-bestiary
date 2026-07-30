@@ -261,7 +261,7 @@ public class WaitingRoomScreen extends Screen {
                 ? Component.translatable("gui.fracturedutils.waiting_room.starting")
                 : Component.translatable("gui.fracturedutils.waiting_room.waiting");
         int badgeColor = isCountdown ? RED_NOT_READY : CYAN_MAIN;
-        int badgeWidth = isCountdown ? 68 : 60;
+        int badgeWidth = this.font.width(badgeText.copy().withStyle(ChatFormatting.BOLD)) + 12;
 
         int badgeX = x + width - badgeWidth - 15;
         guiGraphics.fill(badgeX, y + 10, badgeX + badgeWidth, y + 24, badgeColor);

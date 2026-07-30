@@ -96,9 +96,14 @@ public class ClientEventHandler {
             GuiGraphics guiGraphics = event.getGuiGraphics();
             int screenWidth = mc.getWindow().getGuiScaledWidth();
 
+            int totalConnected = 0;
+            if (mc.getConnection() != null && mc.getConnection().getOnlinePlayers() != null) {
+                totalConnected = mc.getConnection().getOnlinePlayers().size();
+            }
+
             boolean isOp = mc.player != null && mc.player.hasPermissions(2);
             boolean isCountdown = ClientWaitingRoomData.isCountingDown();
-            boolean isEveryoneReady = ClientWaitingRoomData.isEveryoneReady();
+            boolean isEveryoneReady = ClientWaitingRoomData.isEveryoneReady(totalConnected);
 
             int borderColor = isCountdown ? 0xFFFF3355 : (isEveryoneReady ? 0xFF00FF55 : 0xFF00E5FF);
             int innerColor = isCountdown ? 0x44FF3355 : (isEveryoneReady ? 0x4400FF55 : 0x4400E5FF);
@@ -112,10 +117,6 @@ public class ClientEventHandler {
             Component titleText = Component.literal("★ " + titleStr + " ★").withStyle(net.minecraft.ChatFormatting.BOLD, titleStyle);
 
             // Line 2: Player count & timer/countdown
-            int totalConnected = 0;
-            if (mc.getConnection() != null && mc.getConnection().getOnlinePlayers() != null) {
-                totalConnected = mc.getConnection().getOnlinePlayers().size();
-            }
             int joinedCount = ClientWaitingRoomData.getPlayerUUIDs().size();
 
             long remaining = isCountdown ? ClientWaitingRoomData.getCountdownRemainingSeconds() : 0;
