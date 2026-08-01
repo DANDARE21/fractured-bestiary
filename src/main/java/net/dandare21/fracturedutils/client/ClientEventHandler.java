@@ -15,6 +15,7 @@ import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
+import net.minecraftforge.client.event.sound.PlaySoundEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -26,6 +27,13 @@ public class ClientEventHandler {
     public static int ticksSinceLastSound = 0;
     public static final int MAX_HOLD_TICKS = 30; // 1.5 Seconds hold time
     public static float smoothHoldProgress = 0.0f;
+
+    @SubscribeEvent
+    public static void onPlaySound(PlaySoundEvent event) {
+        if (ClientCutsceneHandler.getInstance().isCinematicPlaying()) {
+            event.setSound(null);
+        }
+    }
 
     @SubscribeEvent
     public static void onClientChat(ClientChatReceivedEvent event) {

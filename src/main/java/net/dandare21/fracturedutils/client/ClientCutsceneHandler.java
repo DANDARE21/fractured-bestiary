@@ -45,6 +45,19 @@ public class ClientCutsceneHandler {
     private final Map<SoundSource, Float> originalSoundSourceVolumes = new EnumMap<>(SoundSource.class);
     private boolean isAudioDucked = false;
     private boolean isUserInEscMenu = false;
+
+    public boolean isCutsceneActive() {
+        return isCutsceneActive;
+    }
+
+    public boolean isPlaybackStarted() {
+        return isPlaybackStarted;
+    }
+
+    public boolean isCinematicPlaying() {
+        return isCutsceneActive && isPlaybackStarted;
+    }
+
     public int getUserVolumePercent() {
         return ClientCutsceneConfig.getVideoVolumePercent();
     }
@@ -222,8 +235,6 @@ public class ClientCutsceneHandler {
             return;
         }
 
-        duckMinecraftAudio();
-
         ClientVideoCache.getVideoFileAsync(videoUrl, customName).thenAcceptAsync(file -> {
             onVideoDownloaded(file, cutsceneId);
         }, Minecraft.getInstance()).exceptionally(ex -> {
@@ -361,8 +372,9 @@ public class ClientCutsceneHandler {
                         setSoundSourceVolume(mc, source, 0.0f);
                     }
                 }
+                mc.getSoundManager().stop();
                 isAudioDucked = true;
-                FracturedUtils.LOGGER.info("[Cutscene] Muted all non-master Minecraft sound sources.");
+                FracturedUtils.LOGGER.info("[Cutscene] Muted all non-master Minecraft sound sources and stopped running sounds.");
             } catch (Exception e) {
                 FracturedUtils.LOGGER.warn("[Cutscene] Failed to duck Minecraft non-master audio", e);
             }
@@ -864,6 +876,7 @@ public class ClientCutsceneHandler {
     private void playPlayer() {
         if (mediaPlayerInstance == null) return;
         FracturedUtils.LOGGER.info("[Cutscene] Invoking play/start on WATERMeDIA player instance.");
+        duckMinecraftAudio();
         invokePlayerMethod("start", new Class<?>[]{}, (Object[]) null);
         invokePlayerMethod("resume", new Class<?>[]{}, (Object[]) null);
         invokePlayerMethod("setPause", new Class<?>[]{boolean.class}, false);
