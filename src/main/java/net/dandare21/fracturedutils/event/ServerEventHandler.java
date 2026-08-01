@@ -15,6 +15,10 @@ import net.minecraftforge.fml.common.Mod;
 import net.dandare21.fracturedutils.command.MaintenanceCommands;
 import net.dandare21.fracturedutils.maintenance.MaintenanceManager;
 
+import net.dandare21.fracturedutils.command.DownloadCinematicCommand;
+import net.dandare21.fracturedutils.command.PlayCinematicCommand;
+import net.dandare21.fracturedutils.cutscene.ServerCutsceneManager;
+
 @Mod.EventBusSubscriber(modid = FracturedUtils.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class ServerEventHandler {
 
@@ -29,6 +33,8 @@ public class ServerEventHandler {
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         WaitingRoomCommands.register(event.getDispatcher());
         MaintenanceCommands.register(event.getDispatcher());
+        PlayCinematicCommand.register(event.getDispatcher());
+        DownloadCinematicCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent
@@ -50,13 +56,14 @@ public class ServerEventHandler {
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             WaitingRoomManager.getInstance().removePlayerByUUID(player.getServer(), player.getUUID());
+            ServerCutsceneManager.getInstance().onPlayerLoggedOut(player);
         }
     }
 
     @SubscribeEvent
     public static void onLivingAttack(LivingAttackEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            if (WaitingRoomManager.getInstance().isPlayerJoined(player.getUUID())) {
+            if (WaitingRoomManager.getInstance().isPlayerJoined(player.getUUID()) || ServerCutsceneManager.getInstance().isPlayerInCutscene(player.getUUID())) {
                 event.setCanceled(true);
             }
         }
@@ -65,7 +72,7 @@ public class ServerEventHandler {
     @SubscribeEvent
     public static void onLivingHurt(LivingHurtEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            if (WaitingRoomManager.getInstance().isPlayerJoined(player.getUUID())) {
+            if (WaitingRoomManager.getInstance().isPlayerJoined(player.getUUID()) || ServerCutsceneManager.getInstance().isPlayerInCutscene(player.getUUID())) {
                 event.setCanceled(true);
             }
         }

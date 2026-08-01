@@ -34,7 +34,10 @@ public class ClientEventHandler {
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
+        if (event.phase != TickEvent.Phase.END)
+            return;
+
+        ClientCutsceneHandler.getInstance().onClientTick();
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) {
@@ -59,13 +62,15 @@ public class ClientEventHandler {
                 ticksSinceLastSound++;
 
                 float progress = (float) holdTicks / MAX_HOLD_TICKS;
-                // High rate at start (every 1 tick), decelerating as progress increases (up to every 5 ticks)
+                // High rate at start (every 1 tick), decelerating as progress increases (up to
+                // every 5 ticks)
                 int targetInterval = Math.max(1, Math.round(1.0f + (progress * 4.0f)));
 
                 if (ticksSinceLastSound >= targetInterval) {
                     ticksSinceLastSound = 0;
                     float pitch = 0.8f + (progress * 0.8f);
-                    mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, pitch, 0.3f));
+                    mc.getSoundManager()
+                            .play(SimpleSoundInstance.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, pitch, 0.3f));
                 }
 
                 if (holdTicks >= MAX_HOLD_TICKS) {
@@ -87,11 +92,15 @@ public class ClientEventHandler {
 
     @SubscribeEvent
     public static void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
+        ClientCutsceneHandler.getInstance().renderOverlay(event);
+
         if (event.getOverlay().id().equals(VanillaGuiOverlay.HOTBAR.id())) {
-            if (!ClientWaitingRoomData.isActive()) return;
+            if (!ClientWaitingRoomData.isActive())
+                return;
 
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof WaitingRoomScreen) return;
+            if (mc.screen instanceof WaitingRoomScreen)
+                return;
 
             GuiGraphics guiGraphics = event.getGuiGraphics();
             int screenWidth = mc.getWindow().getGuiScaledWidth();
@@ -108,34 +117,43 @@ public class ClientEventHandler {
             int borderColor = isCountdown ? 0xFFFF3355 : (isEveryoneReady ? 0xFF00FF55 : 0xFF00E5FF);
             int innerColor = isCountdown ? 0x44FF3355 : (isEveryoneReady ? 0x4400FF55 : 0x4400E5FF);
             int titleColor = isCountdown ? 0xFFFF3355 : (isEveryoneReady ? 0xFF00FF55 : 0xFF00E5FF);
-            net.minecraft.ChatFormatting titleStyle = isCountdown ? net.minecraft.ChatFormatting.RED : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
-            net.minecraft.ChatFormatting statsStyle = isCountdown ? net.minecraft.ChatFormatting.RED : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.YELLOW);
-            net.minecraft.ChatFormatting promptStyle = isCountdown ? net.minecraft.ChatFormatting.RED : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
+            net.minecraft.ChatFormatting titleStyle = isCountdown ? net.minecraft.ChatFormatting.RED
+                    : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
+            net.minecraft.ChatFormatting statsStyle = isCountdown ? net.minecraft.ChatFormatting.RED
+                    : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.YELLOW);
+            net.minecraft.ChatFormatting promptStyle = isCountdown ? net.minecraft.ChatFormatting.RED
+                    : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
 
             // Line 1: Event Title
             String titleStr = ClientWaitingRoomData.getRoomTitle().toUpperCase();
-            Component titleText = Component.literal("★ " + titleStr + " ★").withStyle(net.minecraft.ChatFormatting.BOLD, titleStyle);
+            Component titleText = Component.literal(titleStr).withStyle(net.minecraft.ChatFormatting.BOLD, titleStyle);
 
             // Line 2: Player count & timer/countdown
             int joinedCount = ClientWaitingRoomData.getPlayerUUIDs().size();
 
             long remaining = isCountdown ? ClientWaitingRoomData.getCountdownRemainingSeconds() : 0;
             String timeStr = isCountdown
-                    ? Component.translatable("gui.fracturedutils.waiting_room.starting_in", remaining / 60, remaining % 60).getString()
-                    : String.format("⏱ %02d:%02d", ClientWaitingRoomData.getElapsedSeconds() / 60, ClientWaitingRoomData.getElapsedSeconds() % 60);
+                    ? Component
+                            .translatable("gui.fracturedutils.waiting_room.starting_in", remaining / 60, remaining % 60)
+                            .getString()
+                    : String.format("⏱ %02d:%02d", ClientWaitingRoomData.getElapsedSeconds() / 60,
+                            ClientWaitingRoomData.getElapsedSeconds() % 60);
 
-            Component statsText = Component.translatable("gui.fracturedutils.waiting_room.hud_players", joinedCount, totalConnected)
+            Component statsText = Component
+                    .translatable("gui.fracturedutils.waiting_room.hud_players", joinedCount, totalConnected)
                     .append(Component.literal("   |   " + timeStr))
                     .withStyle(statsStyle, net.minecraft.ChatFormatting.BOLD);
 
             // Line 3: Key prompt
             String keyName = ModKeyBindings.WAITING_ROOM_KEY.getTranslatedKeyMessage().getString().toUpperCase();
-            Component promptPrefix = Component.translatable(isOp ? "gui.fracturedutils.waiting_room.press" : "gui.fracturedutils.waiting_room.hold");
+            Component promptPrefix = Component.translatable(
+                    isOp ? "gui.fracturedutils.waiting_room.press" : "gui.fracturedutils.waiting_room.hold");
             Component enterPrompt = Component.translatable("gui.fracturedutils.waiting_room.enter_prompt");
 
             Component promptText = Component.literal("[").withStyle(promptStyle, net.minecraft.ChatFormatting.BOLD)
                     .append(promptPrefix.getString() + " ")
-                    .append(Component.literal(keyName).withStyle(net.minecraft.ChatFormatting.WHITE, net.minecraft.ChatFormatting.BOLD))
+                    .append(Component.literal(keyName).withStyle(net.minecraft.ChatFormatting.WHITE,
+                            net.minecraft.ChatFormatting.BOLD))
                     .append(enterPrompt)
                     .withStyle(promptStyle, net.minecraft.ChatFormatting.BOLD);
 
@@ -180,7 +198,9 @@ public class ClientEventHandler {
             // Smooth Progress Bar Calculation
             float partialTick = event.getPartialTick();
             if (holdTicks > 0) {
-                float rawProgress = Math.min(1.0f, (holdTicks + (ModKeyBindings.WAITING_ROOM_KEY.isDown() ? partialTick : -partialTick)) / MAX_HOLD_TICKS);
+                float rawProgress = Math.min(1.0f,
+                        (holdTicks + (ModKeyBindings.WAITING_ROOM_KEY.isDown() ? partialTick : -partialTick))
+                                / MAX_HOLD_TICKS);
                 smoothHoldProgress = smoothHoldProgress + (rawProgress - smoothHoldProgress) * 0.4f;
             } else {
                 smoothHoldProgress = smoothHoldProgress * 0.6f;
@@ -207,6 +227,7 @@ public class ClientEventHandler {
         @SubscribeEvent
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(ModKeyBindings.WAITING_ROOM_KEY);
+            event.register(ModKeyBindings.SKIP_CUTSCENE_KEY);
         }
     }
 }

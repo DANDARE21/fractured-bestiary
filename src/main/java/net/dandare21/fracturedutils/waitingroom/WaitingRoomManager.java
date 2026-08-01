@@ -66,6 +66,7 @@ public class WaitingRoomManager {
         this.startTimeMs = System.currentTimeMillis();
         this.joinedPlayers.clear();
         this.readyPlayers.clear();
+        net.dandare21.fracturedutils.cutscene.ServerCutsceneManager.getInstance().resetDownloadCounters();
 
         syncToAll(server);
 
@@ -118,6 +119,7 @@ public class WaitingRoomManager {
         this.startTimeMs = 0;
         this.joinedPlayers.clear();
         this.readyPlayers.clear();
+        net.dandare21.fracturedutils.cutscene.ServerCutsceneManager.getInstance().resetDownloadCounters();
         syncToAll(server);
 
         Component announcement = Component.literal("[Event Waiting Room] ")
@@ -190,6 +192,8 @@ public class WaitingRoomManager {
         List<String> playerNames = new ArrayList<>();
         List<UUID> playerUUIDs = new ArrayList<>();
         List<Boolean> readyStates = new ArrayList<>();
+        List<Integer> finishedDownloads = new ArrayList<>();
+        List<Integer> remainingDownloads = new ArrayList<>();
 
         if (server != null) {
             for (UUID uuid : joinedPlayers) {
@@ -198,12 +202,14 @@ public class WaitingRoomManager {
                     playerNames.add(player.getScoreboardName());
                     playerUUIDs.add(uuid);
                     readyStates.add(readyPlayers.contains(uuid));
+                    finishedDownloads.add(net.dandare21.fracturedutils.cutscene.ServerCutsceneManager.getInstance().getFinishedDownloads(uuid));
+                    remainingDownloads.add(net.dandare21.fracturedutils.cutscene.ServerCutsceneManager.getInstance().getRemainingDownloads(uuid));
                 }
             }
         }
 
         long elapsedSeconds = active ? Math.max(0, (System.currentTimeMillis() - startTimeMs) / 1000) : 0;
         long countdownRemaining = isCountingDown() ? getCountdownRemainingSeconds() : 0;
-        return new SyncWaitingRoomStateS2CPacket(active, roomTitle, playerNames, playerUUIDs, readyStates, elapsedSeconds, countingDown, countdownRemaining);
+        return new SyncWaitingRoomStateS2CPacket(active, roomTitle, playerNames, playerUUIDs, readyStates, finishedDownloads, remainingDownloads, elapsedSeconds, countingDown, countdownRemaining);
     }
 }

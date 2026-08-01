@@ -13,17 +13,21 @@ public class ClientWaitingRoomData {
     private static List<String> playerNames = new ArrayList<>();
     private static List<UUID> playerUUIDs = new ArrayList<>();
     private static List<Boolean> playerReadyStates = new ArrayList<>();
+    private static List<Integer> playerFinishedDownloads = new ArrayList<>();
+    private static List<Integer> playerRemainingDownloads = new ArrayList<>();
     private static long startTimeLocalMs = 0;
     private static boolean countingDown = false;
     private static long clientCountdownEndMs = 0;
     private static final List<Component> chatMessages = new ArrayList<>();
 
-    public static synchronized void updateState(boolean isActive, String title, List<String> names, List<UUID> uuids, List<Boolean> readyStates, long elapsedSeconds, boolean isCountingDown, long countdownRemainingSeconds) {
+    public static synchronized void updateState(boolean isActive, String title, List<String> names, List<UUID> uuids, List<Boolean> readyStates, List<Integer> finishedDownloads, List<Integer> remainingDownloads, long elapsedSeconds, boolean isCountingDown, long countdownRemainingSeconds) {
         active = isActive;
         roomTitle = title != null ? title : "Starting Soon...";
         playerNames = names != null ? new ArrayList<>(names) : new ArrayList<>();
         playerUUIDs = uuids != null ? new ArrayList<>(uuids) : new ArrayList<>();
         playerReadyStates = readyStates != null ? new ArrayList<>(readyStates) : new ArrayList<>();
+        playerFinishedDownloads = finishedDownloads != null ? new ArrayList<>(finishedDownloads) : new ArrayList<>();
+        playerRemainingDownloads = remainingDownloads != null ? new ArrayList<>(remainingDownloads) : new ArrayList<>();
         startTimeLocalMs = System.currentTimeMillis() - (elapsedSeconds * 1000);
         countingDown = isCountingDown;
         if (isCountingDown) {
@@ -77,6 +81,14 @@ public class ClientWaitingRoomData {
 
     public static List<Boolean> getPlayerReadyStates() {
         return Collections.unmodifiableList(playerReadyStates);
+    }
+
+    public static List<Integer> getPlayerFinishedDownloads() {
+        return Collections.unmodifiableList(playerFinishedDownloads);
+    }
+
+    public static List<Integer> getPlayerRemainingDownloads() {
+        return Collections.unmodifiableList(playerRemainingDownloads);
     }
 
     public static boolean isSelfJoined(UUID selfUUID) {

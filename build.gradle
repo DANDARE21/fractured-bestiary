@@ -87,6 +87,18 @@ minecraft {
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
+        client1 {
+            parent runs.client
+            workingDirectory project.file('run/client1')
+            args '--username', 'Player1'
+        }
+
+        client2 {
+            parent runs.client
+            workingDirectory project.file('run/client2')
+            args '--username', 'Player2'
+        }
+
         server {
             property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
@@ -109,16 +121,20 @@ minecraft {
     }
 }
 
+// Ensure isolated run directories exist for client instances
+project.file('run/client1').mkdirs()
+project.file('run/client2').mkdirs()
+
 tasks.register('runClientPlayer1', Exec) {
     group = 'forgegradle runs'
     description = 'Runs Minecraft client logged in as Player1 (OP)'
-    commandLine 'cmd', '/c', 'gradlew.bat', 'runClient', '--args=--username Player1'
+    commandLine 'cmd', '/c', 'gradlew.bat', 'runClient1'
 }
 
 tasks.register('runClientPlayer2', Exec) {
     group = 'forgegradle runs'
     description = 'Runs Minecraft client logged in as Player2 (Non-OP)'
-    commandLine 'cmd', '/c', 'gradlew.bat', 'runClient', '--args=--username Player2'
+    commandLine 'cmd', '/c', 'gradlew.bat', 'runClient2'
 }
 
 tasks.register('runMultiplayerEnvironment', Exec) {

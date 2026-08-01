@@ -1,8 +1,14 @@
 package net.dandare21.fracturedutils.network;
 
 import net.dandare21.fracturedutils.FracturedUtils;
+import net.dandare21.fracturedutils.network.packet.C2SClientReadyPacket;
+import net.dandare21.fracturedutils.network.packet.C2SCutsceneEndPacket;
+import net.dandare21.fracturedutils.network.packet.C2SDownloadCompletePacket;
 import net.dandare21.fracturedutils.network.packet.JoinWaitingRoomC2SPacket;
 import net.dandare21.fracturedutils.network.packet.OpenWaitingRoomScreenS2CPacket;
+import net.dandare21.fracturedutils.network.packet.S2CDownloadVideoPacket;
+import net.dandare21.fracturedutils.network.packet.S2CPrepareVideoPacket;
+import net.dandare21.fracturedutils.network.packet.S2CStartPlaybackPacket;
 import net.dandare21.fracturedutils.network.packet.SyncWaitingRoomStateS2CPacket;
 import net.dandare21.fracturedutils.network.packet.ToggleReadyC2SPacket;
 import net.minecraft.resources.ResourceLocation;
@@ -53,6 +59,42 @@ public class ModMessages {
                 .decoder(ToggleReadyC2SPacket::new)
                 .encoder(ToggleReadyC2SPacket::encode)
                 .consumerMainThread(ToggleReadyC2SPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CPrepareVideoPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CPrepareVideoPacket::new)
+                .encoder(S2CPrepareVideoPacket::encode)
+                .consumerMainThread(S2CPrepareVideoPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SClientReadyPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SClientReadyPacket::new)
+                .encoder(C2SClientReadyPacket::encode)
+                .consumerMainThread(C2SClientReadyPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CStartPlaybackPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CStartPlaybackPacket::new)
+                .encoder(S2CStartPlaybackPacket::encode)
+                .consumerMainThread(S2CStartPlaybackPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SCutsceneEndPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SCutsceneEndPacket::new)
+                .encoder(C2SCutsceneEndPacket::encode)
+                .consumerMainThread(C2SCutsceneEndPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CDownloadVideoPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CDownloadVideoPacket::new)
+                .encoder(S2CDownloadVideoPacket::encode)
+                .consumerMainThread(S2CDownloadVideoPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SDownloadCompletePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SDownloadCompletePacket::new)
+                .encoder(C2SDownloadCompletePacket::encode)
+                .consumerMainThread(C2SDownloadCompletePacket::handle)
                 .add();
     }
 

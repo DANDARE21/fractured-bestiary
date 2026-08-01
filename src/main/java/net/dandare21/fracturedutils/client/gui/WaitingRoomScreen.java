@@ -248,6 +248,8 @@ public class WaitingRoomScreen extends Screen {
         int totalConnected = connectedPlayers.size();
         List<UUID> joinedUUIDs = ClientWaitingRoomData.getPlayerUUIDs();
         List<Boolean> readyStates = ClientWaitingRoomData.getPlayerReadyStates();
+        List<Integer> finishedList = ClientWaitingRoomData.getPlayerFinishedDownloads();
+        List<Integer> remainingList = ClientWaitingRoomData.getPlayerRemainingDownloads();
         int joinedCount = joinedUUIDs.size();
 
         // Header: PLAYERS JOINED ([Joined]/[Total Connected])
@@ -315,8 +317,10 @@ public class WaitingRoomScreen extends Screen {
                     int joinedIdx = joinedUUIDs.indexOf(uuid);
                     boolean hasJoined = joinedIdx >= 0;
                     boolean isReady = hasJoined && joinedIdx < readyStates.size() && readyStates.get(joinedIdx);
+                    int finished = (joinedIdx >= 0 && joinedIdx < finishedList.size()) ? finishedList.get(joinedIdx) : 0;
+                    int remaining = (joinedIdx >= 0 && joinedIdx < remainingList.size()) ? remainingList.get(joinedIdx) : 0;
 
-                    drawConnectedPlayerCard(guiGraphics, cardX, cardY, cardW, cardH, name, skinLoc, hasJoined, isReady);
+                    drawConnectedPlayerCard(guiGraphics, cardX, cardY, cardW, cardH, name, skinLoc, hasJoined, isReady, finished, remaining);
                 }
             }
 
@@ -530,7 +534,7 @@ public class WaitingRoomScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    private void drawConnectedPlayerCard(GuiGraphics guiGraphics, int x, int y, int w, int h, String name, ResourceLocation skinLoc, boolean hasJoined, boolean isReady) {
+    private void drawConnectedPlayerCard(GuiGraphics guiGraphics, int x, int y, int w, int h, String name, ResourceLocation skinLoc, boolean hasJoined, boolean isReady, int finishedDownloads, int remainingDownloads) {
         int borderColor;
         int fillColor;
         int nameColor;
@@ -575,9 +579,21 @@ public class WaitingRoomScreen extends Screen {
             guiGraphics.drawCenteredString(this.font, "👤", avatarX + (avatarSize / 2), avatarY + (avatarSize / 2) - 4, borderColor);
         }
 
+        // Render Download Counter Badge on Card Right Side ([Finished Downloads]/[Total Downloads])
+        int counterW = 0;
+        if (finishedDownloads > 0 || remainingDownloads > 0) {
+            int totalDownloads = finishedDownloads + remainingDownloads;
+            String counterText = "[" + finishedDownloads + "/" + totalDownloads + "]";
+            int counterColor = (remainingDownloads > 0) ? 0xFFFFD700 : 0xFF55FF55; // Gold if downloading, Green if completed
+            counterW = this.font.width(counterText) + 4;
+            int counterX = x + w - counterW - 2;
+            int counterY = y + (h / 2) - 4;
+            guiGraphics.drawString(this.font, Component.literal(counterText).withStyle(ChatFormatting.BOLD), counterX, counterY, counterColor, false);
+        }
+
         // Name & Status Text Placement
         int textX = avatarX + avatarSize + 8;
-        int maxTextW = w - (textX - x) - 6;
+        int maxTextW = w - (textX - x) - counterW - 6;
 
         int nameY = y + (h / 2) - 9;
         int statusY = y + (h / 2) + 2;
