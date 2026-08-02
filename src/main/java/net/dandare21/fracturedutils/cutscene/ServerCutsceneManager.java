@@ -34,6 +34,10 @@ public class ServerCutsceneManager {
         return playerUuid != null && activeCutscenePlayers.contains(playerUuid);
     }
 
+    public boolean isCutsceneActive() {
+        return !activeCutscenePlayers.isEmpty();
+    }
+
     public synchronized void onClientCutsceneEnd(ServerPlayer player, UUID cutsceneId) {
         if (player != null) {
             activeCutscenePlayers.remove(player.getUUID());
@@ -53,6 +57,21 @@ public class ServerCutsceneManager {
 
     public int getRemainingDownloads(UUID uuid) {
         return uuid != null ? remainingDownloadsMap.getOrDefault(uuid, 0) : 0;
+    }
+
+    public boolean areAllDownloadsComplete(MinecraftServer server) {
+        if (server == null) return true;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (player != null && getRemainingDownloads(player.getUUID()) > 0) {
+                return false;
+            }
+        }
+        for (Integer remaining : remainingDownloadsMap.values()) {
+            if (remaining != null && remaining > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public void resetDownloadCounters() {

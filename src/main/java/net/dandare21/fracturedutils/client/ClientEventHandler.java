@@ -11,7 +11,6 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
-import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
@@ -70,8 +69,6 @@ public class ClientEventHandler {
                 ticksSinceLastSound++;
 
                 float progress = (float) holdTicks / MAX_HOLD_TICKS;
-                // High rate at start (every 1 tick), decelerating as progress increases (up to
-                // every 5 ticks)
                 int targetInterval = Math.max(1, Math.round(1.0f + (progress * 4.0f)));
 
                 if (ticksSinceLastSound >= targetInterval) {
@@ -103,6 +100,9 @@ public class ClientEventHandler {
         ClientCutsceneHandler.getInstance().renderOverlay(event);
 
         if (event.getOverlay().id().equals(VanillaGuiOverlay.HOTBAR.id())) {
+            // Render OP Active Sequence Monitor HUD Overlay
+            ClientOpMonitorData.renderHudOverlay(event.getGuiGraphics());
+
             if (!ClientWaitingRoomData.isActive())
                 return;
 
@@ -132,11 +132,9 @@ public class ClientEventHandler {
             net.minecraft.ChatFormatting promptStyle = isCountdown ? net.minecraft.ChatFormatting.RED
                     : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
 
-            // Line 1: Event Title
             String titleStr = ClientWaitingRoomData.getRoomTitle().toUpperCase();
             Component titleText = Component.literal(titleStr).withStyle(net.minecraft.ChatFormatting.BOLD, titleStyle);
 
-            // Line 2: Player count & timer/countdown
             int joinedCount = ClientWaitingRoomData.getPlayerUUIDs().size();
 
             long remaining = isCountdown ? ClientWaitingRoomData.getCountdownRemainingSeconds() : 0;
@@ -152,7 +150,6 @@ public class ClientEventHandler {
                     .append(Component.literal("   |   " + timeStr))
                     .withStyle(statsStyle, net.minecraft.ChatFormatting.BOLD);
 
-            // Line 3: Key prompt
             String keyName = ModKeyBindings.WAITING_ROOM_KEY.getTranslatedKeyMessage().getString().toUpperCase();
             Component promptPrefix = Component.translatable(
                     isOp ? "gui.fracturedutils.waiting_room.press" : "gui.fracturedutils.waiting_room.hold");
@@ -177,18 +174,15 @@ public class ClientEventHandler {
 
             int fillColor = 0xEE08121B;
 
-            // Cyberpunk Card Background Fill & Primary Outer Borders
             guiGraphics.fill(x, y, x + cardW, y + cardH, fillColor);
             guiGraphics.fill(x, y, x + cardW, y + 1, borderColor);
             guiGraphics.fill(x, y + cardH - 1, x + cardW, y + cardH, borderColor);
             guiGraphics.fill(x, y, x + 1, y + cardH, borderColor);
             guiGraphics.fill(x + cardW - 1, y, x + cardW, y + cardH, borderColor);
 
-            // Cyberpunk Double Inner Border Line
             guiGraphics.fill(x + 2, y + 2, x + cardW - 2, y + 3, innerColor);
             guiGraphics.fill(x + 2, y + cardH - 3, x + cardW - 2, y + cardH - 2, innerColor);
 
-            // Hover corner notch accents
             guiGraphics.fill(x, y, x + 5, y + 2, borderColor);
             guiGraphics.fill(x, y, x + 2, y + 5, borderColor);
             guiGraphics.fill(x + cardW - 5, y, x + cardW, y + 2, borderColor);
@@ -198,12 +192,10 @@ public class ClientEventHandler {
             guiGraphics.fill(x + cardW - 5, y + cardH - 2, x + cardW, y + cardH, borderColor);
             guiGraphics.fill(x + cardW - 2, y + cardH - 5, x + cardW, y + cardH, borderColor);
 
-            // Draw Lines centered
             guiGraphics.drawCenteredString(mc.font, titleText, x + (cardW / 2), y + 6, titleColor);
             guiGraphics.drawCenteredString(mc.font, statsText, x + (cardW / 2), y + 19, 0xFFFFFFFF);
             guiGraphics.drawCenteredString(mc.font, promptText, x + (cardW / 2), y + 32, 0xFFFFFFFF);
 
-            // Smooth Progress Bar Calculation
             float partialTick = event.getPartialTick();
             if (holdTicks > 0) {
                 float rawProgress = Math.min(1.0f,
@@ -219,7 +211,6 @@ public class ClientEventHandler {
             int barWidth = cardW - 8;
             int barHeight = 2;
 
-            // Background bar track
             guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0x55050B10);
 
             int filledWidth = (int) (barWidth * Math.max(0.0f, Math.min(1.0f, smoothHoldProgress)));
@@ -236,6 +227,7 @@ public class ClientEventHandler {
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(ModKeyBindings.WAITING_ROOM_KEY);
             event.register(ModKeyBindings.SKIP_CUTSCENE_KEY);
+            event.register(ModKeyBindings.OPERATOR_RESUME_KEY);
         }
     }
 }

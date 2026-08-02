@@ -196,9 +196,9 @@ public class WaitingRoomManager {
         List<Integer> remainingDownloads = new ArrayList<>();
 
         if (server != null) {
-            for (UUID uuid : joinedPlayers) {
-                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 if (player != null) {
+                    UUID uuid = player.getUUID();
                     playerNames.add(player.getScoreboardName());
                     playerUUIDs.add(uuid);
                     readyStates.add(readyPlayers.contains(uuid));

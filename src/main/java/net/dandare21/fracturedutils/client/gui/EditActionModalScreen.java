@@ -1,0 +1,542 @@
+package net.dandare21.fracturedutils.client.gui;
+
+import net.dandare21.fracturedutils.orchestrator.action.*;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.CommandSuggestions;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.function.Consumer;
+
+public class EditActionModalScreen extends Screen {
+    private static final int CYAN_MAIN = 0xFF00E5FF;
+    private static final int CYAN_BG = 0xFF05090C;
+    private static final int RED_CANCEL = 0xFFFF3355;
+
+    public enum DelayUnit {
+        TICKS, SECONDS, MINUTES
+    }
+
+    private final Screen parentScreen;
+    private OrchestratorAction action;
+    private final Consumer<OrchestratorAction> onSave;
+
+    private String actionType;
+    private String waitUntilType = "delay";
+    private DelayUnit delayUnit = DelayUnit.TICKS;
+
+    private CyberpunkDropdown<String> actionTypeDropdown;
+    private CyberpunkDropdown<String> subActionTypeDropdown;
+    private CyberpunkDropdown<DelayUnit> unitDropdown;
+
+    private EditBox inputField;
+    private CommandSuggestions commandSuggestions;
+
+    public EditActionModalScreen(Screen parentScreen, OrchestratorAction action, Consumer<OrchestratorAction> onSave) {
+        super(Component.literal("Edit Action"));
+        this.parentScreen = parentScreen;
+        this.action = action;
+        this.onSave = onSave;
+
+        if (action != null) {
+            String t = action.getType();
+            if (t.equalsIgnoreCase("delay") || t.equalsIgnoreCase("wait_until")) {
+                this.actionType = "wait_until";
+                this.waitUntilType = "delay";
+            } else if (t.equalsIgnoreCase("await_trigger")) {
+                this.actionType = "await_trigger";
+            } else {
+                this.actionType = t;
+            }
+        } else {
+            this.actionType = "command";
+        }
+
+        if (action instanceof WaitUntilAction wua) {
+            this.waitUntilType = wua.getWaitType();
+            int ticks = wua.getTicks();
+            if (ticks > 0 && ticks % 1200 == 0) {
+                this.delayUnit = DelayUnit.MINUTES;
+            } else if (ticks > 0 && ticks % 20 == 0) {
+                this.delayUnit = DelayUnit.SECONDS;
+            } else {
+                this.delayUnit = DelayUnit.TICKS;
+            }
+        } else if (action instanceof DelayAction da) {
+            int ticks = da.getTicks();
+            if (ticks > 0 && ticks % 1200 == 0) {
+                this.delayUnit = DelayUnit.MINUTES;
+            } else if (ticks > 0 && ticks % 20 == 0) {
+                this.delayUnit = DelayUnit.SECONDS;
+            } else {
+                this.delayUnit = DelayUnit.TICKS;
+            }
+        }
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    @Override
+    protected void init() {
+        int panelWidth = 360;
+        int panelHeight = 220;
+        int left = (this.width - panelWidth) / 2;
+        int top = (this.height - panelHeight) / 2;
+
+        if (action == null) {
+            action = createActionForType(actionType);
+        }
+
+        // --- 1. Action Type Selection Dropdown ---
+        List<CyberpunkDropdown.DropdownEntry<String>> actionEntries = new ArrayList<>();
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("command", Component.literal("Command Action"), Component.literal("Execute console command (%player% supported)")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("wait_until", Component.literal("Wait Until Action"), Component.literal("Pause sequence until condition is met")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("await_trigger", Component.literal("Await Trigger"), Component.literal("Wait for external trigger ID event")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("fork_sequence", Component.literal("Fork Sequence"), Component.literal("Asynchronously start sub-sequence")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("run_sequence", Component.literal("Run Sequence"), Component.literal("Synchronously execute sub-sequence")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("stall_parent", Component.literal("Stall Parent"), Component.literal("Stall execution of parent sequence")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("resume_parent", Component.literal("Resume Parent"), Component.literal("Resume execution of parent sequence")));
+
+        this.actionTypeDropdown = new CyberpunkDropdown<>(left + 20, top + 34, panelWidth - 40, 20, Component.literal("Action Type"));
+        this.actionTypeDropdown.setOptions(actionEntries);
+        this.actionTypeDropdown.selectByValue(actionType);
+        this.actionTypeDropdown.setMaxVisibleItems(5);
+        this.actionTypeDropdown.setItemHeight(24);
+        this.actionTypeDropdown.setOnOpenListener(() -> {
+            if (subActionTypeDropdown != null) subActionTypeDropdown.setOpen(false);
+            if (unitDropdown != null) unitDropdown.setOpen(false);
+        });
+        this.actionTypeDropdown.setOnSelect(entry -> {
+            String newType = entry.getValue();
+            if (!newType.equalsIgnoreCase(this.actionType)) {
+                this.actionType = newType;
+                if (newType.equalsIgnoreCase("await_trigger")) {
+                    this.waitUntilType = "trigger";
+                }
+                this.action = createActionForType(newType);
+                this.rebuildWidgets();
+            }
+        });
+        this.addRenderableWidget(this.actionTypeDropdown);
+
+        // --- 2. Subaction Selection Dropdown (Only for Wait Until) ---
+        if (actionType.equalsIgnoreCase("wait_until")) {
+            List<CyberpunkDropdown.DropdownEntry<String>> subEntries = new ArrayList<>();
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("delay", Component.literal("Delay Duration"), Component.literal("Wait for specific ticks/seconds/minutes")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("trigger", Component.literal("Event Trigger"), Component.literal("Wait for /orchestrator trigger event")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("operator_action", Component.literal("Operator Action Button"), Component.literal("Display interactive action button on HUD")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("video", Component.literal("Video / Cutscene End"), Component.literal("Wait until active video/cinematic ends")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("waiting_room", Component.literal("Waiting Room End"), Component.literal("Wait until active waiting room phase finishes")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("downloads", Component.literal("Cutscene Downloads End"), Component.literal("Wait until all players finish downloading remaining cutscenes")));
+
+            this.subActionTypeDropdown = new CyberpunkDropdown<>(left + 20, top + 60, panelWidth - 40, 20, Component.literal("Subaction Condition"));
+            this.subActionTypeDropdown.setOptions(subEntries);
+            this.subActionTypeDropdown.selectByValue(waitUntilType);
+            this.subActionTypeDropdown.setMaxVisibleItems(5);
+            this.subActionTypeDropdown.setItemHeight(24);
+            this.subActionTypeDropdown.setOnOpenListener(() -> {
+                if (actionTypeDropdown != null) actionTypeDropdown.setOpen(false);
+                if (unitDropdown != null) unitDropdown.setOpen(false);
+            });
+            this.subActionTypeDropdown.setOnSelect(entry -> {
+                String newSub = entry.getValue();
+                this.waitUntilType = newSub;
+                if (action instanceof WaitUntilAction wua) {
+                    wua.setWaitType(newSub);
+                }
+                this.rebuildWidgets();
+            });
+            this.addRenderableWidget(this.subActionTypeDropdown);
+        } else {
+            this.subActionTypeDropdown = null;
+        }
+
+        // --- 3. Time Unit Dropdown (For Wait Until -> Delay) ---
+        boolean isDelayMode = actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay");
+        if (isDelayMode) {
+            List<CyberpunkDropdown.DropdownEntry<DelayUnit>> unitEntries = new ArrayList<>();
+            unitEntries.add(new CyberpunkDropdown.DropdownEntry<>(DelayUnit.TICKS, Component.literal("TICKS"), Component.literal("1 tick = 1/20 sec")));
+            unitEntries.add(new CyberpunkDropdown.DropdownEntry<>(DelayUnit.SECONDS, Component.literal("SECONDS"), Component.literal("1 sec = 20 ticks")));
+            unitEntries.add(new CyberpunkDropdown.DropdownEntry<>(DelayUnit.MINUTES, Component.literal("MINUTES"), Component.literal("1 min = 1200 ticks")));
+
+            this.unitDropdown = new CyberpunkDropdown<>(left + panelWidth - 145, top + 86, 125, 18, Component.literal("Unit"));
+            this.unitDropdown.setOptions(unitEntries);
+            this.unitDropdown.selectByValue(delayUnit);
+            this.unitDropdown.setMaxVisibleItems(3);
+            this.unitDropdown.setItemHeight(20);
+            this.unitDropdown.setOnOpenListener(() -> {
+                if (actionTypeDropdown != null) actionTypeDropdown.setOpen(false);
+                if (subActionTypeDropdown != null) subActionTypeDropdown.setOpen(false);
+            });
+            this.unitDropdown.setOnSelect(entry -> switchDelayUnit(entry.getValue()));
+            this.addRenderableWidget(this.unitDropdown);
+        } else {
+            this.unitDropdown = null;
+        }
+
+        // --- 4. Input Field Setup ---
+        int fieldY = (actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay")) ? top + 130 : (actionType.equalsIgnoreCase("wait_until") ? top + 116 : top + 120);
+        this.inputField = new EditBox(this.font, left + 25, fieldY, panelWidth - 50, 18, Component.literal("Input"));
+        this.inputField.setMaxLength(512);
+        this.inputField.setBordered(false);
+        this.inputField.setTextColor(0xFFFFFFFF);
+
+        if (actionType.equalsIgnoreCase("command")) {
+            if (action instanceof CommandAction ca) {
+                this.inputField.setValue(ca.getRun());
+            } else {
+                this.inputField.setValue("say Hello %player%");
+            }
+            this.addRenderableWidget(this.inputField);
+
+            this.commandSuggestions = new CommandSuggestions(
+                    this.minecraft, this, this.inputField, this.font,
+                    true, true, 0, 7, true, 0xEE081622
+            );
+            this.commandSuggestions.setAllowSuggestions(true);
+            this.commandSuggestions.updateCommandInfo();
+
+            this.inputField.setResponder(text -> {
+                if (this.commandSuggestions != null) {
+                    this.commandSuggestions.updateCommandInfo();
+                }
+            });
+        } else if (actionType.equalsIgnoreCase("await_trigger")) {
+            this.commandSuggestions = null;
+            String trig = (action instanceof AwaitTriggerAction ata) ? ata.getTriggerId() : ((action instanceof WaitUntilAction wua) ? wua.getTriggerId() : "trigger_1");
+            this.inputField.setValue(trig);
+            this.addRenderableWidget(this.inputField);
+        } else if (actionType.equalsIgnoreCase("wait_until")) {
+            this.commandSuggestions = null;
+            if (action instanceof WaitUntilAction wua) {
+                if (waitUntilType.equalsIgnoreCase("delay")) {
+                    updateDelayInputField(wua.getTicks());
+                    this.addRenderableWidget(this.inputField);
+                } else if (waitUntilType.equalsIgnoreCase("operator_action")) {
+                    this.inputField.setValue(wua.getLabel());
+                    this.addRenderableWidget(this.inputField);
+                } else if (waitUntilType.equalsIgnoreCase("trigger")) {
+                    this.inputField.setValue(wua.getTriggerId().isEmpty() ? "trigger_1" : wua.getTriggerId());
+                    this.addRenderableWidget(this.inputField);
+                }
+            } else if (action instanceof DelayAction da) {
+                updateDelayInputField(da.getTicks());
+                this.addRenderableWidget(this.inputField);
+            }
+        } else if (actionType.equalsIgnoreCase("fork_sequence")) {
+            this.commandSuggestions = null;
+            if (action instanceof ForkSequenceAction fsa) {
+                this.inputField.setValue(fsa.getFile());
+            } else {
+                this.inputField.setValue("sub_sequence.json");
+            }
+            this.addRenderableWidget(this.inputField);
+        } else if (actionType.equalsIgnoreCase("run_sequence")) {
+            this.commandSuggestions = null;
+            if (action instanceof RunSequenceAction rsa) {
+                this.inputField.setValue(rsa.getFile());
+            } else {
+                this.inputField.setValue("sub_sequence.json");
+            }
+            this.addRenderableWidget(this.inputField);
+        } else {
+            this.commandSuggestions = null;
+        }
+
+        // --- 5. Save & Cancel Buttons ---
+        int bottomY = top + panelHeight - 28;
+        this.addRenderableWidget(new CyberpunkButton(left + panelWidth / 2 - 95, bottomY, 90, 24, Component.literal("SAVE"), b -> {
+            applyInputValue();
+            if (onSave != null) {
+                onSave.accept(action);
+            }
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(parentScreen);
+            }
+        }, CYAN_MAIN, false, Component.literal("Save action changes")));
+
+        this.addRenderableWidget(new CyberpunkButton(left + panelWidth / 2 + 5, bottomY, 90, 24, Component.literal("CANCEL"), b -> {
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(parentScreen);
+            }
+        }, RED_CANCEL, false, Component.literal("Cancel action editing")));
+    }
+
+    private void switchDelayUnit(DelayUnit newUnit) {
+        if (this.delayUnit == newUnit) return;
+        int currentTicks = calculateDelayTicks();
+        this.delayUnit = newUnit;
+        updateDelayInputField(currentTicks);
+    }
+
+    private void updateDelayInputField(int totalTicks) {
+        if (inputField == null) return;
+        if (delayUnit == DelayUnit.MINUTES) {
+            double mins = totalTicks / 1200.0;
+            inputField.setValue(mins == (int) mins ? String.valueOf((int) mins) : String.format(Locale.US, "%.2f", mins));
+        } else if (delayUnit == DelayUnit.SECONDS) {
+            double secs = totalTicks / 20.0;
+            inputField.setValue(secs == (int) secs ? String.valueOf((int) secs) : String.format(Locale.US, "%.1f", secs));
+        } else {
+            inputField.setValue(String.valueOf(totalTicks));
+        }
+    }
+
+    private int calculateDelayTicks() {
+        if (inputField == null) return 0;
+        String val = inputField.getValue().trim();
+        if (val.isEmpty()) return 0;
+        try {
+            double d = Double.parseDouble(val);
+            if (delayUnit == DelayUnit.MINUTES) {
+                return (int) Math.round(d * 1200);
+            } else if (delayUnit == DelayUnit.SECONDS) {
+                return (int) Math.round(d * 20);
+            } else {
+                return (int) Math.round(d);
+            }
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private OrchestratorAction createActionForType(String type) {
+        return switch (type.toLowerCase()) {
+            case "wait_until" -> new WaitUntilAction(waitUntilType, 20, "", "Resume Sequence");
+            case "await_trigger" -> new AwaitTriggerAction("trigger_1");
+            case "fork_sequence" -> new ForkSequenceAction("sub_sequence.json");
+            case "run_sequence" -> new RunSequenceAction("sub_sequence.json");
+            case "stall_parent" -> new StallParentAction();
+            case "resume_parent" -> new ResumeParentAction();
+            default -> new CommandAction("say Hello %player%");
+        };
+    }
+
+    private void applyInputValue() {
+        if (inputField == null) return;
+        String val = inputField.getValue().trim();
+
+        if (action instanceof CommandAction ca) {
+            ca.setRun(val);
+        } else if (action instanceof AwaitTriggerAction ata) {
+            ata.setTriggerId(val);
+        } else if (action instanceof WaitUntilAction wua) {
+            wua.setWaitType(waitUntilType);
+            if (waitUntilType.equalsIgnoreCase("delay")) {
+                wua.setTicks(calculateDelayTicks());
+            } else if (waitUntilType.equalsIgnoreCase("operator_action")) {
+                wua.setLabel(val);
+                wua.setTriggerId("");
+            } else if (waitUntilType.equalsIgnoreCase("trigger")) {
+                wua.setTriggerId(val);
+            } else {
+                wua.setTriggerId("");
+            }
+        } else if (action instanceof DelayAction da) {
+            da.setTicks(calculateDelayTicks());
+        } else if (action instanceof ForkSequenceAction fsa) {
+            fsa.setFile(val);
+        } else if (action instanceof RunSequenceAction rsa) {
+            rsa.setFile(val);
+        }
+    }
+
+    private double getSuggestionOffsetY() {
+        int panelHeight = 220;
+        int top = (this.height - panelHeight) / 2;
+        int fieldY = top + 120;
+        return (fieldY + 24) - (this.height - 12);
+    }
+
+    private boolean isDropdownOpen() {
+        return (actionTypeDropdown != null && actionTypeDropdown.isOpen()) ||
+                (subActionTypeDropdown != null && subActionTypeDropdown.isOpen()) ||
+                (unitDropdown != null && unitDropdown.isOpen());
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (!isDropdownOpen() && this.commandSuggestions != null && this.commandSuggestions.keyPressed(keyCode, scanCode, modifiers)) {
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (subActionTypeDropdown != null && subActionTypeDropdown.mouseScrolled(mouseX, mouseY, amount)) return true;
+        if (unitDropdown != null && unitDropdown.mouseScrolled(mouseX, mouseY, amount)) return true;
+        if (actionTypeDropdown != null && actionTypeDropdown.mouseScrolled(mouseX, mouseY, amount)) return true;
+
+        if (this.commandSuggestions != null && this.commandSuggestions.mouseScrolled(amount)) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, amount);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (subActionTypeDropdown != null && subActionTypeDropdown.isOpen()) {
+            if (subActionTypeDropdown.mouseClicked(mouseX, mouseY, button)) return true;
+        }
+        if (unitDropdown != null && unitDropdown.isOpen()) {
+            if (unitDropdown.mouseClicked(mouseX, mouseY, button)) return true;
+        }
+        if (actionTypeDropdown != null && actionTypeDropdown.isOpen()) {
+            if (actionTypeDropdown.mouseClicked(mouseX, mouseY, button)) return true;
+        }
+
+        if (this.commandSuggestions != null) {
+            double offsetY = getSuggestionOffsetY();
+            if (this.commandSuggestions.mouseClicked(mouseX, mouseY - offsetY, button)) {
+                return true;
+            }
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (subActionTypeDropdown != null && subActionTypeDropdown.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
+        if (unitDropdown != null && unitDropdown.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
+        if (actionTypeDropdown != null && actionTypeDropdown.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
+
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (subActionTypeDropdown != null && subActionTypeDropdown.mouseReleased(mouseX, mouseY, button)) return true;
+        if (unitDropdown != null && unitDropdown.mouseReleased(mouseX, mouseY, button)) return true;
+        if (actionTypeDropdown != null && actionTypeDropdown.mouseReleased(mouseX, mouseY, button)) return true;
+
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private void drawGridOverlay(GuiGraphics graphics) {
+        int gridSize = 32;
+        long time = System.currentTimeMillis();
+        int offsetX = (int) ((time / 40) % gridSize);
+        int offsetY = (int) ((time / 40) % gridSize);
+
+        for (int x = -gridSize + offsetX; x < this.width + gridSize; x += gridSize) {
+            graphics.fill(x, 0, x + 1, this.height, 0x1200E5FF);
+        }
+        for (int y = -gridSize + offsetY; y < this.height + gridSize; y += gridSize) {
+            graphics.fill(0, y, this.width, y + 1, 0x1200E5FF);
+        }
+    }
+
+    private void drawBorderBox(GuiGraphics graphics, int x, int y, int w, int h, int borderColor, int fillColor) {
+        graphics.fill(x, y, x + w, y + h, fillColor);
+        graphics.fill(x, y, x + w, y + 1, borderColor);
+        graphics.fill(x, y + h - 1, x + w, y + h, borderColor);
+        graphics.fill(x, y, x + 1, y + h, borderColor);
+        graphics.fill(x + w - 1, y, x + w, y + h, borderColor);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.fill(0, 0, this.width, this.height, CYAN_BG);
+        drawGridOverlay(graphics);
+
+        int panelWidth = 360;
+        int panelHeight = 220;
+        int left = (this.width - panelWidth) / 2;
+        int top = (this.height - panelHeight) / 2;
+
+        drawBorderBox(graphics, left, top, panelWidth, panelHeight, CYAN_MAIN, 0xEE060C12);
+
+        // Header Title Bar
+        graphics.fill(left, top, left + panelWidth, top + 26, 0xEE081622);
+        graphics.fill(left, top + 25, left + panelWidth, top + 26, CYAN_MAIN);
+        graphics.drawString(this.font, "EDIT ACTION: " + actionType.toUpperCase(), left + 12, top + 8, CYAN_MAIN, false);
+
+        boolean isCommandInvalid = false;
+        if (actionType.equalsIgnoreCase("command") && inputField != null) {
+            isCommandInvalid = !CommandAction.isValidCommand(this.minecraft, inputField.getValue());
+            this.inputField.setTextColor(isCommandInvalid ? 0xFFFF5555 : 0xFFFFFFFF);
+        }
+
+        // Subaction or Prompt Label logic
+        String promptLabel;
+        int promptColor;
+        boolean showInputFieldBox = true;
+
+        if (actionType.equalsIgnoreCase("command")) {
+            promptLabel = isCommandInvalid ? "Command String (%player% supported) - ⚠ INVALID SYNTAX" : "Command String (%player% supported):";
+            promptColor = isCommandInvalid ? 0xFFFF3355 : 0xFFAABBCC;
+        } else if (actionType.equalsIgnoreCase("await_trigger")) {
+            promptLabel = "Trigger ID Event Name:";
+            promptColor = 0xFFAABBCC;
+        } else if (actionType.equalsIgnoreCase("wait_until")) {
+            promptLabel = switch (waitUntilType.toLowerCase()) {
+                case "delay" -> "Wait Duration (" + delayUnit.name() + "):";
+                case "trigger" -> "Trigger ID Event Name:";
+                case "operator_action" -> "Operator Action Button Description:";
+                case "video", "video_end", "cutscene", "cinematic" -> "Pauses sequence until active video/cinematic playback ends.";
+                case "waiting_room", "waiting_room_end", "waitingroom" -> "Pauses sequence until active event waiting room ends.";
+                case "downloads", "downloads_end", "cutscene_downloads", "video_downloads" -> "Pauses sequence until all players finish downloading remaining cutscenes.";
+                default -> "Pauses sequence until trigger event occurs.";
+            };
+            promptColor = 0xFFAABBCC;
+            if (waitUntilType.equalsIgnoreCase("video") || waitUntilType.equalsIgnoreCase("waiting_room") || waitUntilType.equalsIgnoreCase("downloads")) {
+                showInputFieldBox = false;
+            }
+        } else if (actionType.equalsIgnoreCase("stall_parent") || actionType.equalsIgnoreCase("resume_parent")) {
+            promptLabel = actionType.equalsIgnoreCase("stall_parent") ? "No input required. Pauses parent sequence." : "No input required. Wakes up parent sequence.";
+            promptColor = 0xFFAABBCC;
+            showInputFieldBox = false;
+        } else {
+            promptLabel = switch (actionType.toLowerCase()) {
+                case "fork_sequence", "run_sequence" -> "Subsequence JSON File Name:";
+                default -> "Value:";
+            };
+            promptColor = 0xFFAABBCC;
+        }
+
+        // Draw Prompt Label
+        int labelY = (actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay")) ? top + 114 : top + 104;
+        graphics.drawString(this.font, promptLabel, left + 20, labelY, promptColor, false);
+
+        // Draw Delay Summary Breakdown
+        boolean isDelayMode = actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay");
+        if (isDelayMode) {
+            int totalTicks = calculateDelayTicks();
+            String summary = String.format(Locale.US, "= %d Ticks  |  %.1fs  |  %.2fm", totalTicks, totalTicks / 20.0f, totalTicks / 1200.0f);
+            graphics.drawString(this.font, summary, left + 20, top + 152, CYAN_MAIN, false);
+        }
+
+        // Draw Input Box Frame if applicable
+        if (showInputFieldBox) {
+            int fieldY = (actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay")) ? top + 128 : (actionType.equalsIgnoreCase("wait_until") ? top + 114 : top + 118);
+            int boxBorderColor = isCommandInvalid ? 0xFFFF3355 : 0xAA00E5FF;
+            drawBorderBox(graphics, left + 20, fieldY, panelWidth - 40, 22, boxBorderColor, 0xEE08121B);
+        }
+
+        // Render base widgets (Buttons, EditBoxes, Dropdown base bars)
+        super.render(graphics, mouseX, mouseY, partialTick);
+
+        // Render Command Suggestions popup anchored underneath input field
+        if (this.commandSuggestions != null) {
+            double offsetY = getSuggestionOffsetY();
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, offsetY, 350);
+            this.commandSuggestions.render(graphics, mouseX, mouseY);
+            graphics.pose().popPose();
+        }
+
+        // Render Dropdown overlays on top of everything!
+        if (actionTypeDropdown != null) actionTypeDropdown.renderOverlay(graphics, mouseX, mouseY);
+        if (subActionTypeDropdown != null) subActionTypeDropdown.renderOverlay(graphics, mouseX, mouseY);
+        if (unitDropdown != null) unitDropdown.renderOverlay(graphics, mouseX, mouseY);
+    }
+}

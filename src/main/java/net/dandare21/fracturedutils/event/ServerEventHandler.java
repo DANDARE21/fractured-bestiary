@@ -26,6 +26,7 @@ public class ServerEventHandler {
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END && event.getServer() != null) {
             WaitingRoomManager.getInstance().tick(event.getServer());
+            net.dandare21.fracturedutils.orchestrator.OrchestratorManager.getInstance().tick(event.getServer());
         }
     }
 
@@ -35,6 +36,7 @@ public class ServerEventHandler {
         MaintenanceCommands.register(event.getDispatcher());
         PlayCinematicCommand.register(event.getDispatcher());
         DownloadCinematicCommand.register(event.getDispatcher());
+        net.dandare21.fracturedutils.command.OrchestratorCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent
@@ -57,6 +59,7 @@ public class ServerEventHandler {
         if (event.getEntity() instanceof ServerPlayer player) {
             WaitingRoomManager.getInstance().removePlayerByUUID(player.getServer(), player.getUUID());
             ServerCutsceneManager.getInstance().onPlayerLoggedOut(player);
+            net.dandare21.fracturedutils.orchestrator.OrchestratorManager.getInstance().onPlayerLoggedOut(player);
         }
     }
 

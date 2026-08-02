@@ -11,6 +11,13 @@ import net.dandare21.fracturedutils.network.packet.S2CPrepareVideoPacket;
 import net.dandare21.fracturedutils.network.packet.S2CStartPlaybackPacket;
 import net.dandare21.fracturedutils.network.packet.SyncWaitingRoomStateS2CPacket;
 import net.dandare21.fracturedutils.network.packet.ToggleReadyC2SPacket;
+import net.dandare21.fracturedutils.network.packet.C2SRequestOpenOrchestratorUiPacket;
+import net.dandare21.fracturedutils.network.packet.S2CSendSequenceDataPacket;
+import net.dandare21.fracturedutils.network.packet.C2SSaveSequencePacket;
+import net.dandare21.fracturedutils.network.packet.C2SDeleteSequencePacket;
+import net.dandare21.fracturedutils.network.packet.S2CSyncOperatorActionsPacket;
+import net.dandare21.fracturedutils.network.packet.C2SSubmitOperatorResumePacket;
+import net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -95,6 +102,48 @@ public class ModMessages {
                 .decoder(C2SDownloadCompletePacket::new)
                 .encoder(C2SDownloadCompletePacket::encode)
                 .consumerMainThread(C2SDownloadCompletePacket::handle)
+                .add();
+
+        net.messageBuilder(C2SRequestOpenOrchestratorUiPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SRequestOpenOrchestratorUiPacket::new)
+                .encoder(C2SRequestOpenOrchestratorUiPacket::encode)
+                .consumerMainThread(C2SRequestOpenOrchestratorUiPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CSendSequenceDataPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CSendSequenceDataPacket::new)
+                .encoder(S2CSendSequenceDataPacket::encode)
+                .consumerMainThread(S2CSendSequenceDataPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SSaveSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SSaveSequencePacket::new)
+                .encoder(C2SSaveSequencePacket::encode)
+                .consumerMainThread(C2SSaveSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(C2SDeleteSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SDeleteSequencePacket::new)
+                .encoder(C2SDeleteSequencePacket::encode)
+                .consumerMainThread(C2SDeleteSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(S2CSyncOperatorActionsPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CSyncOperatorActionsPacket::new)
+                .encoder(S2CSyncOperatorActionsPacket::encode)
+                .consumerMainThread(S2CSyncOperatorActionsPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SSubmitOperatorResumePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SSubmitOperatorResumePacket::new)
+                .encoder(C2SSubmitOperatorResumePacket::encode)
+                .consumerMainThread(C2SSubmitOperatorResumePacket::handle)
+                .add();
+
+        net.messageBuilder(S2CSyncSequenceTelemetryPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CSyncSequenceTelemetryPacket::new)
+                .encoder(S2CSyncSequenceTelemetryPacket::encode)
+                .consumerMainThread(S2CSyncSequenceTelemetryPacket::handle)
                 .add();
     }
 
