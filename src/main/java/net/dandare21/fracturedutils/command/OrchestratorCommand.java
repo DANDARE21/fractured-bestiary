@@ -1,6 +1,7 @@
 package net.dandare21.fracturedutils.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -27,18 +28,24 @@ public class OrchestratorCommand {
         dispatcher.register(Commands.literal("orchestrator")
                 .requires(s -> s.hasPermission(2))
                 .then(Commands.literal("run")
-                        // /orchestrator run <file_name>
+                        // /orchestrator run <file_name> [start_index]
                         .then(Commands.argument("file_name", StringArgumentType.string())
                                 .suggests(SUGGEST_SEQUENCES)
-                                .executes(ctx -> executeRunFileOnly(ctx, StringArgumentType.getString(ctx, "file_name")))
-                                // /orchestrator run <file_name> <targets>
+                                .executes(ctx -> executeRunFileOnly(ctx, StringArgumentType.getString(ctx, "file_name"), 0))
+                                .then(Commands.argument("start_index", IntegerArgumentType.integer(1))
+                                        .executes(ctx -> executeRunFileOnly(ctx, StringArgumentType.getString(ctx, "file_name"), IntegerArgumentType.getInteger(ctx, "start_index") - 1)))
+                                // /orchestrator run <file_name> <targets> [start_index]
                                 .then(Commands.argument("targets", EntityArgument.players())
-                                        .executes(ctx -> executeRunFileAndTargets(ctx, StringArgumentType.getString(ctx, "file_name"), EntityArgument.getPlayers(ctx, "targets")))))
-                        // /orchestrator run <targets> <file_name>
+                                        .executes(ctx -> executeRunFileAndTargets(ctx, StringArgumentType.getString(ctx, "file_name"), EntityArgument.getPlayers(ctx, "targets"), 0))
+                                        .then(Commands.argument("start_index", IntegerArgumentType.integer(1))
+                                                .executes(ctx -> executeRunFileAndTargets(ctx, StringArgumentType.getString(ctx, "file_name"), EntityArgument.getPlayers(ctx, "targets"), IntegerArgumentType.getInteger(ctx, "start_index") - 1)))))
+                        // /orchestrator run <targets> <file_name> [start_index]
                         .then(Commands.argument("targets", EntityArgument.players())
                                 .then(Commands.argument("file_name", StringArgumentType.string())
                                         .suggests(SUGGEST_SEQUENCES)
-                                        .executes(ctx -> executeRunFileAndTargets(ctx, StringArgumentType.getString(ctx, "file_name"), EntityArgument.getPlayers(ctx, "targets"))))))
+                                        .executes(ctx -> executeRunFileAndTargets(ctx, StringArgumentType.getString(ctx, "file_name"), EntityArgument.getPlayers(ctx, "targets"), 0))
+                                        .then(Commands.argument("start_index", IntegerArgumentType.integer(1))
+                                                .executes(ctx -> executeRunFileAndTargets(ctx, StringArgumentType.getString(ctx, "file_name"), EntityArgument.getPlayers(ctx, "targets"), IntegerArgumentType.getInteger(ctx, "start_index") - 1))))))
                 .then(Commands.literal("resume")
                         .executes(ctx -> executeResume(ctx, null, null))
                         .then(Commands.argument("trigger_id", StringArgumentType.string())
@@ -90,14 +97,15 @@ public class OrchestratorCommand {
         );
     }
 
-    private static int executeRunFileOnly(CommandContext<CommandSourceStack> ctx, String fileName) {
+    private static int executeRunFileOnly(CommandContext<CommandSourceStack> ctx, String fileName, int startIndex) {
         CommandSourceStack source = ctx.getSource();
         String targetPlayerName = source.getEntity() instanceof ServerPlayer player ? player.getScoreboardName() : null;
 
-        boolean started = OrchestratorManager.getInstance().startSequence(fileName, targetPlayerName);
+        boolean started = OrchestratorManager.getInstance().startSequence(fileName, targetPlayerName, startIndex);
         if (started) {
+            String fromText = startIndex > 0 ? " from action #" + (startIndex + 1) : "";
             String forText = targetPlayerName != null ? " for player " + targetPlayerName : " (global server sequence)";
-            source.sendSuccess(() -> Component.literal("Started sequence '" + fileName + "'" + forText)
+            source.sendSuccess(() -> Component.literal("Started sequence '" + fileName + "'" + fromText + forText)
                     .withStyle(ChatFormatting.GREEN), true);
             return 1;
         } else {
@@ -107,15 +115,15 @@ public class OrchestratorCommand {
         }
     }
 
-    private static int executeRunFileAndTargets(CommandContext<CommandSourceStack> ctx, String fileName, Collection<ServerPlayer> targets) {
+    private static int executeRunFileAndTargets(CommandContext<CommandSourceStack> ctx, String fileName, Collection<ServerPlayer> targets, int startIndex) {
         CommandSourceStack source = ctx.getSource();
         if (targets == null || targets.isEmpty()) {
-            return executeRunFileOnly(ctx, fileName);
+            return executeRunFileOnly(ctx, fileName, startIndex);
         }
 
         int count = 0;
         for (ServerPlayer player : targets) {
-            boolean started = OrchestratorManager.getInstance().startSequence(fileName, player.getScoreboardName());
+            boolean started = OrchestratorManager.getInstance().startSequence(fileName, player.getScoreboardName(), startIndex);
             if (started) {
                 count++;
             }
@@ -123,7 +131,8 @@ public class OrchestratorCommand {
 
         if (count > 0) {
             final int finalCount = count;
-            source.sendSuccess(() -> Component.literal("Started sequence '" + fileName + "' for " + finalCount + " player(s).")
+            String fromText = startIndex > 0 ? " from action #" + (startIndex + 1) : "";
+            source.sendSuccess(() -> Component.literal("Started sequence '" + fileName + "'" + fromText + " for " + finalCount + " player(s).")
                     .withStyle(ChatFormatting.GREEN), true);
             return count;
         } else {

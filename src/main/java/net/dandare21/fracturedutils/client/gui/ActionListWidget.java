@@ -35,6 +35,14 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
         }
     }
 
+    public int getTopPos() {
+        return topPos;
+    }
+
+    public int getItemHeight() {
+        return itemHeight;
+    }
+
     public int getDraggingIndex() {
         return draggingIndex;
     }
@@ -251,29 +259,65 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 graphics.drawString(font, Component.literal(details), left + 22, top + 17, 0xFFAABBCC, false);
             }
 
-            // Render Mini Buttons: Edit (⚙), Delete (✖)
+            // Render Mini Buttons: Play (▶), Edit (⚙), Delete (✖)
             int btnY = top + 5;
             int btnH = 18;
             int btnW = 20;
 
+            int playX = left + width - 68;
             int editX = left + width - 46;
             int deleteX = left + width - 24;
 
+            renderCyberpunkMiniBtn(graphics, "▶", playX, btnY, btnW, btnH, 0xFF55FF55, mouseX, mouseY);
             renderCyberpunkMiniBtn(graphics, "⚙", editX, btnY, btnW, btnH, 0xFF00E5FF, mouseX, mouseY);
             renderCyberpunkMiniBtn(graphics, "✖", deleteX, btnY, btnW, btnH, 0xFFFF3355, mouseX, mouseY);
 
             // Render Tooltips for Mini Buttons / Drag Handle on Hover
             if (mouseY >= btnY && mouseY < btnY + btnH) {
-                if (mouseX >= editX && mouseX < editX + btnW) {
-                    graphics.renderTooltip(font, Component.literal("Edit"), mouseX, mouseY);
+                if (mouseX >= playX && mouseX < playX + btnW) {
+                    graphics.renderTooltip(font, Component.literal("Start sequence from Action #" + (index + 1)), mouseX, mouseY);
+                } else if (mouseX >= editX && mouseX < editX + btnW) {
+                    graphics.renderTooltip(font, Component.literal("Edit action"), mouseX, mouseY);
                 } else if (mouseX >= deleteX && mouseX < deleteX + btnW) {
-                    graphics.renderTooltip(font, Component.literal("Delete"), mouseX, mouseY);
+                    graphics.renderTooltip(font, Component.literal("Delete action"), mouseX, mouseY);
                 } else if (isHovered) {
                     graphics.renderTooltip(font, Component.literal("Drag to reorder"), mouseX, mouseY);
                 }
             } else if (isHovered && mouseX >= left && mouseX <= left + width) {
                 graphics.renderTooltip(font, Component.literal("Drag to reorder"), mouseX, mouseY);
             }
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (button == 0 && screen.getActionListWidget() != null) {
+                int listTop = screen.getActionListWidget().getTopPos();
+                int rowTop = listTop + (this.index * screen.getActionListWidget().getItemHeight()) - (int) screen.getActionListWidget().getScrollAmount();
+                int btnY = rowTop + 5;
+                int btnH = 18;
+                int btnW = 20;
+
+                int rowLeft = screen.getActionListWidget().getRowLeft();
+                int width = screen.getActionListWidget().getRowWidth();
+
+                int playX = rowLeft + width - 68;
+                int editX = rowLeft + width - 46;
+                int deleteX = rowLeft + width - 24;
+
+                if (mouseY >= btnY && mouseY < btnY + btnH) {
+                    if (mouseX >= playX && mouseX < playX + btnW) {
+                        screen.runSequenceFromAction(this.index);
+                        return true;
+                    } else if (mouseX >= editX && mouseX < editX + btnW) {
+                        screen.openEditModal(this.index);
+                        return true;
+                    } else if (mouseX >= deleteX && mouseX < deleteX + btnW) {
+                        screen.deleteAction(this.index);
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private void renderCyberpunkMiniBtn(GuiGraphics graphics, String text, int x, int y, int w, int h, int baseColor, int mouseX, int mouseY) {
@@ -322,7 +366,8 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 } else if (mode.equals("proximity") || mode.equals("marker") || mode.equals("player_proximity") || mode.equals("area")) {
                     String reqText = wua.isRequireAllPlayers() ? "ALL players" : "ANY player";
                     String visText = wua.isOpsOnlyVisibility() ? "Ops Only" : "Visible to All";
-                    return String.format(java.util.Locale.ROOT, "Marker (%.1f, %.1f, %.1f) r=%.1fm [%s, %s]", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), reqText, visText);
+                    String areaText = wua.isShowRadiusArea() ? "Area On" : "Area Off";
+                    return String.format(java.util.Locale.ROOT, "Marker (%.1f, %.1f, %.1f) r=%.1fm [%s, %s, %s]", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), reqText, visText, areaText);
                 } else if (mode.equals("video") || mode.equals("video_end") || mode.equals("cutscene") || mode.equals("cinematic")) {
                     return "Wait for active video to end";
                 } else if (mode.equals("waiting_room") || mode.equals("waiting_room_end") || mode.equals("waitingroom")) {
@@ -348,33 +393,6 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 return "Wake up parent sequence node";
             }
             return "";
-        }
-
-        @Override
-        public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            if (button == 0) {
-                int left = screen.getActionListLeft() + 12;
-                int width = screen.getActionListWidth() - 24;
-                int top = screen.getEntryTop(index);
-                int btnY = top + 5;
-                int btnH = 18;
-                int btnW = 20;
-
-                int editX = left + width - 46;
-                int deleteX = left + width - 24;
-
-                if (mouseY >= btnY && mouseY < btnY + btnH) {
-                    if (mouseX >= editX && mouseX < editX + btnW) {
-                        screen.openEditModal(index);
-                        return true;
-                    }
-                    if (mouseX >= deleteX && mouseX < deleteX + btnW) {
-                        screen.deleteAction(index);
-                        return true;
-                    }
-                }
-            }
-            return false;
         }
 
         @Override

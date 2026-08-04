@@ -92,6 +92,10 @@ public class OrchestratorManager {
     }
 
     public SequenceInstance createSequenceInstance(String fileName, String targetPlayerName, SequenceInstance parent) {
+        return createSequenceInstance(fileName, targetPlayerName, parent, 0);
+    }
+
+    public SequenceInstance createSequenceInstance(String fileName, String targetPlayerName, SequenceInstance parent, int startIndex) {
         String cleanName = sanitizeFileName(fileName);
         File file = new File(getDirectory(), cleanName);
 
@@ -105,7 +109,7 @@ public class OrchestratorManager {
             if (actions == null) {
                 actions = new ArrayList<>();
             }
-            return new SequenceInstance(cleanName, targetPlayerName, actions, parent);
+            return new SequenceInstance(cleanName, targetPlayerName, actions, parent, startIndex);
         } catch (Exception e) {
             FracturedUtils.LOGGER.error("Failed to parse sequence file {}: {}", cleanName, e.getMessage());
             return null;
@@ -113,7 +117,11 @@ public class OrchestratorManager {
     }
 
     public boolean startSequence(String fileName, String targetPlayerName) {
-        SequenceInstance instance = createSequenceInstance(fileName, targetPlayerName, null);
+        return startSequence(fileName, targetPlayerName, 0);
+    }
+
+    public boolean startSequence(String fileName, String targetPlayerName, int startIndex) {
+        SequenceInstance instance = createSequenceInstance(fileName, targetPlayerName, null, startIndex);
         if (instance != null) {
             activeRootSequences.add(instance);
             return true;
@@ -186,7 +194,7 @@ public class OrchestratorManager {
             } else if (mode.equals("proximity") || mode.equals("marker") || mode.equals("player_proximity") || mode.equals("area")) {
                 String modeTag = wua.isRequireAllPlayers() ? "ALL" : "ANY";
                 String visTag = wua.isOpsOnlyVisibility() ? "Ops" : "All";
-                return String.format(Locale.ROOT, "proximity:%.1f,%.1f,%.1f r=%.1f (%s, %s)", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), modeTag, visTag);
+                return String.format(Locale.ROOT, "proximity:%.1f,%.1f,%.1f r=%.1f (%s, %s, area=%b)", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), modeTag, visTag, wua.isShowRadiusArea());
             } else {
                 return wua.getWaitType();
             }

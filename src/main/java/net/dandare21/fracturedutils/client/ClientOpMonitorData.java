@@ -70,6 +70,43 @@ public class ClientOpMonitorData {
         if (list != null) {
             telemetryList.addAll(list);
         }
+        updateActiveMarkerRenderers();
+    }
+
+    private static void updateActiveMarkerRenderers() {
+        List<ClientMarkerRenderer.MarkerAreaInfo> markers = new ArrayList<>();
+        for (S2CSyncSequenceTelemetryPacket.SequenceTelemetryData seq : telemetryList) {
+            List<S2CSyncSequenceTelemetryPacket.ActionInfo> actions = seq.getActions();
+            int currentIdx = seq.getCurrentIndex();
+            if (currentIdx >= 0 && currentIdx < actions.size()) {
+                S2CSyncSequenceTelemetryPacket.ActionInfo currentAction = actions.get(currentIdx);
+                String details = currentAction.getDetails();
+                if (details != null && details.startsWith("proximity:")) {
+                    parseAndAddActiveMarker(details, markers);
+                }
+            }
+        }
+        ClientMarkerRenderer.setActiveMarkers(markers);
+    }
+
+    private static void parseAndAddActiveMarker(String details, List<ClientMarkerRenderer.MarkerAreaInfo> markers) {
+        try {
+            if (!details.contains("area=true")) {
+                return;
+            }
+            String coordsPart = details.substring("proximity:".length(), details.indexOf(' '));
+            String[] c = coordsPart.split(",");
+            double x = Double.parseDouble(c[0]);
+            double y = Double.parseDouble(c[1]);
+            double z = Double.parseDouble(c[2]);
+
+            int rIdx = details.indexOf("r=");
+            int rEnd = details.indexOf(' ', rIdx);
+            double radius = Double.parseDouble(details.substring(rIdx + 2, rEnd > 0 ? rEnd : details.length()));
+
+            boolean opsOnly = details.contains("Ops");
+            markers.add(new ClientMarkerRenderer.MarkerAreaInfo(x, y, z, radius, opsOnly));
+        } catch (Exception ignored) {}
     }
 
     public static void renderHudOverlay(GuiGraphics graphics) {

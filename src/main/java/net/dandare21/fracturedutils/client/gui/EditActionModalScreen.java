@@ -40,6 +40,7 @@ public class EditActionModalScreen extends Screen {
     private EditBox radiusField;
     private CyberpunkCheckbox requireAllPlayersCheckbox;
     private CyberpunkCheckbox opsOnlyVisibilityCheckbox;
+    private CyberpunkCheckbox showRadiusAreaCheckbox;
     private CyberpunkButton setMyPositionButton;
     private CommandSuggestions commandSuggestions;
 
@@ -93,7 +94,7 @@ public class EditActionModalScreen extends Screen {
     @Override
     protected void init() {
         int panelWidth = 360;
-        int panelHeight = 245;
+        int panelHeight = 265;
         int left = (this.width - panelWidth) / 2;
         int top = (this.height - panelHeight) / 2;
 
@@ -238,6 +239,7 @@ public class EditActionModalScreen extends Screen {
                     double defaultX = 0.0, defaultY = 64.0, defaultZ = 0.0, defaultRadius = 3.0;
                     boolean defaultRequireAll = false;
                     boolean defaultOpsOnly = true;
+                    boolean defaultShowArea = true;
                     if (action instanceof WaitUntilAction w) {
                         defaultX = w.getX();
                         defaultY = w.getY();
@@ -245,6 +247,7 @@ public class EditActionModalScreen extends Screen {
                         defaultRadius = w.getRadius();
                         defaultRequireAll = w.isRequireAllPlayers();
                         defaultOpsOnly = w.isOpsOnlyVisibility();
+                        defaultShowArea = w.isShowRadiusArea();
                     }
 
                     int boxW = 70;
@@ -296,10 +299,17 @@ public class EditActionModalScreen extends Screen {
 
                     this.opsOnlyVisibilityCheckbox = new CyberpunkCheckbox(
                             left + 20, top + 176, panelWidth - 40, 18,
-                            Component.literal("Show Marker Particle to OPS ONLY (Default: Ops Only)"),
+                            Component.literal("Show Marker Icon & Area to OPS ONLY (Unchecked: All Players)"),
                             defaultOpsOnly, null
                     );
                     this.addRenderableWidget(this.opsOnlyVisibilityCheckbox);
+
+                    this.showRadiusAreaCheckbox = new CyberpunkCheckbox(
+                            left + 20, top + 198, panelWidth - 40, 18,
+                            Component.literal("Render Gradient Area Cylinder Mesh around Radius"),
+                            defaultShowArea, null
+                    );
+                    this.addRenderableWidget(this.showRadiusAreaCheckbox);
                 }
             } else if (action instanceof DelayAction da) {
                 updateDelayInputField(da.getTicks());
@@ -308,7 +318,8 @@ public class EditActionModalScreen extends Screen {
         } else if (actionType.equalsIgnoreCase("fork_sequence")) {
             this.commandSuggestions = null;
             if (action instanceof ForkSequenceAction fsa) {
-                this.inputField.setValue(fsa.getFile());
+                String val = fsa.getStartIndex() > 0 ? fsa.getFile() + " " + (fsa.getStartIndex() + 1) : fsa.getFile();
+                this.inputField.setValue(val);
             } else {
                 this.inputField.setValue("sub_sequence.json");
             }
@@ -316,7 +327,8 @@ public class EditActionModalScreen extends Screen {
         } else if (actionType.equalsIgnoreCase("run_sequence")) {
             this.commandSuggestions = null;
             if (action instanceof RunSequenceAction rsa) {
-                this.inputField.setValue(rsa.getFile());
+                String val = rsa.getStartIndex() > 0 ? rsa.getFile() + " " + (rsa.getStartIndex() + 1) : rsa.getFile();
+                this.inputField.setValue(val);
             } else {
                 this.inputField.setValue("sub_sequence.json");
             }
@@ -431,10 +443,28 @@ public class EditActionModalScreen extends Screen {
         } else if (action instanceof DelayAction da) {
             da.setTicks(calculateDelayTicks());
         } else if (action instanceof ForkSequenceAction fsa) {
-            fsa.setFile(val);
+            parseSubsequenceInput(val, fsa::setFile, fsa::setStartIndex);
         } else if (action instanceof RunSequenceAction rsa) {
-            rsa.setFile(val);
+            parseSubsequenceInput(val, rsa::setFile, rsa::setStartIndex);
         }
+    }
+
+    private void parseSubsequenceInput(String val, Consumer<String> setFile, Consumer<Integer> setStartIndex) {
+        if (val == null || val.isBlank()) {
+            setFile.accept("");
+            setStartIndex.accept(0);
+            return;
+        }
+        String[] parts = val.trim().split("\\s+");
+        setFile.accept(parts[0]);
+        int startIndex = 0;
+        if (parts.length >= 2) {
+            try {
+                int num = Integer.parseInt(parts[1]);
+                startIndex = Math.max(0, num - 1);
+            } catch (NumberFormatException ignored) {}
+        }
+        setStartIndex.accept(startIndex);
     }
 
     private double getSuggestionOffsetY() {
@@ -511,16 +541,13 @@ public class EditActionModalScreen extends Screen {
     }
 
     private void drawGridOverlay(GuiGraphics graphics) {
-        int gridSize = 32;
-        long time = System.currentTimeMillis();
-        int offsetX = (int) ((time / 40) % gridSize);
-        int offsetY = (int) ((time / 40) % gridSize);
-
-        for (int x = -gridSize + offsetX; x < this.width + gridSize; x += gridSize) {
-            graphics.fill(x, 0, x + 1, this.height, 0x1200E5FF);
+        int step = 24;
+        int color = 0x08FFFFFF;
+        for (int x = 0; x < this.width; x += step) {
+            graphics.fill(x, 0, x + 1, this.height, color);
         }
-        for (int y = -gridSize + offsetY; y < this.height + gridSize; y += gridSize) {
-            graphics.fill(0, y, this.width, y + 1, 0x1200E5FF);
+        for (int y = 0; y < this.height; y += step) {
+            graphics.fill(0, y, this.width, y + 1, color);
         }
     }
 
@@ -538,7 +565,7 @@ public class EditActionModalScreen extends Screen {
         drawGridOverlay(graphics);
 
         int panelWidth = 360;
-        int panelHeight = 245;
+        int panelHeight = 265;
         int left = (this.width - panelWidth) / 2;
         int top = (this.height - panelHeight) / 2;
 
@@ -591,7 +618,7 @@ public class EditActionModalScreen extends Screen {
             showInputFieldBox = false;
         } else {
             promptLabel = switch (actionType.toLowerCase()) {
-                case "fork_sequence", "run_sequence" -> "Subsequence JSON File Name:";
+                case "fork_sequence", "run_sequence" -> "Subsequence JSON File Name [Start Action #]:";
                 default -> "Value:";
             };
             promptColor = 0xFFAABBCC;

@@ -21,14 +21,19 @@ public class SequenceInstance {
     private SequenceState state = SequenceState.RUNNING;
 
     public SequenceInstance(String sequenceName, String targetPlayerName, List<OrchestratorAction> actions, SequenceInstance parent) {
+        this(sequenceName, targetPlayerName, actions, parent, 0);
+    }
+
+    public SequenceInstance(String sequenceName, String targetPlayerName, List<OrchestratorAction> actions, SequenceInstance parent, int startIndex) {
         this.sequenceName = sequenceName;
         this.targetPlayerName = targetPlayerName;
         this.actions = actions != null ? actions : new ArrayList<>();
         this.parent = parent;
+        this.currentIndex = Math.max(0, Math.min(this.actions.size(), startIndex));
     }
 
     public SequenceInstance(String sequenceName, List<OrchestratorAction> actions, String targetPlayerName, SequenceInstance parent) {
-        this(sequenceName, targetPlayerName, actions, parent);
+        this(sequenceName, targetPlayerName, actions, parent, 0);
     }
 
     public String getSequenceName() {
@@ -53,6 +58,10 @@ public class SequenceInstance {
 
     public int getCurrentIndex() {
         return currentIndex;
+    }
+
+    public void setCurrentIndex(int index) {
+        this.currentIndex = Math.max(0, Math.min(this.actions.size(), index));
     }
 
     public List<OrchestratorAction> getActions() {

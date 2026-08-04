@@ -423,18 +423,8 @@ public class OrchestratorScreen extends Screen {
 
         // [▶ EXECUTE] Button
         this.addRenderableWidget(new CyberpunkButton(rightPanelLeft + rightPanelWidth - 10 - 110 - 110 - 6, bottomY, 110, 26, Component.literal("▶ EXECUTE"), b -> {
-            syncCurrentActionsToJson();
-            String json = activeMap.get(currentFileName);
-            if (currentFileName != null && json != null) {
-                if (!isClientMode) {
-                    ModMessages.sendToServer(new C2SSaveSequencePacket(currentFileName, json));
-                }
-                if (this.minecraft != null && this.minecraft.player != null) {
-                    this.minecraft.player.connection.sendUnsignedCommand("orchestrator run " + currentFileName);
-                }
-                this.onClose();
-            }
-        }, 0xFF55FF55, false, Component.literal("Save and execute sequence")));
+            runSequenceFromAction(0);
+        }, 0xFF55FF55, false, Component.literal("Save and execute sequence from start")));
 
         // [💾 SAVE SEQUENCE] Button
         this.addRenderableWidget(new CyberpunkButton(rightPanelLeft + rightPanelWidth - 10 - 110, bottomY, 110, 26, Component.literal("💾 SAVE SEQUENCE"), b -> {
@@ -493,6 +483,40 @@ public class OrchestratorScreen extends Screen {
         int listTop = mainTop + 35;
         double scroll = actionListWidget != null ? actionListWidget.getScrollAmount() : 0;
         return (int) (listTop + index * 36 - scroll);
+    }
+
+    public void runSequenceFromAction(int actionIndex) {
+        if (currentFileName == null || currentFileName.isEmpty()) {
+            return;
+        }
+        syncCurrentActionsToJson();
+        Map<String, String> activeMap = getActiveSequenceMap();
+        String json = activeMap.get(currentFileName);
+
+        if (!isClientMode) {
+            if (json != null) {
+                ModMessages.sendToServer(new C2SSaveSequencePacket(currentFileName, json));
+            }
+            ModMessages.sendToServer(new net.dandare21.fracturedutils.network.packet.C2SStartSequencePacket(currentFileName, actionIndex));
+            this.saveFeedbackMessage = "▶ STARTED '" + currentFileName + "' FROM ACTION #" + (actionIndex + 1);
+            this.saveFeedbackTime = System.currentTimeMillis();
+        } else {
+            if (json != null) {
+                saveLocalClientSequence(currentFileName, json);
+            }
+            if (this.minecraft != null && this.minecraft.player != null) {
+                boolean started = OrchestratorManager.getInstance().startSequence(currentFileName, this.minecraft.player.getScoreboardName(), actionIndex);
+                if (started) {
+                    this.saveFeedbackMessage = "▶ STARTED '" + currentFileName + "' FROM ACTION #" + (actionIndex + 1);
+                } else {
+                    this.saveFeedbackMessage = "⚠ FAILED TO START SEQUENCE";
+                }
+                this.saveFeedbackTime = System.currentTimeMillis();
+            }
+        }
+        if (this.minecraft != null) {
+            this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        }
     }
 
     public void openEditModal(int index) {

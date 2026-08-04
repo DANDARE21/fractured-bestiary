@@ -24,6 +24,7 @@ public class WaitUntilAction implements OrchestratorAction {
     private double radius = 3.0;
     private boolean requireAllPlayers = false;
     private boolean opsOnlyVisibility = true;
+    private boolean showRadiusArea = true;
 
     private transient int remainingTicks = -1;
     private transient boolean triggered = false;
@@ -43,6 +44,7 @@ public class WaitUntilAction implements OrchestratorAction {
         this.radius = 3.0;
         this.requireAllPlayers = false;
         this.opsOnlyVisibility = true;
+        this.showRadiusArea = true;
     }
 
     public WaitUntilAction(String waitType, int ticks, String triggerId, String label) {
@@ -57,9 +59,10 @@ public class WaitUntilAction implements OrchestratorAction {
         this.radius = 3.0;
         this.requireAllPlayers = false;
         this.opsOnlyVisibility = true;
+        this.showRadiusArea = true;
     }
 
-    public WaitUntilAction(String waitType, double x, double y, double z, double radius, boolean requireAllPlayers, boolean opsOnlyVisibility) {
+    public WaitUntilAction(String waitType, double x, double y, double z, double radius, boolean requireAllPlayers, boolean opsOnlyVisibility, boolean showRadiusArea) {
         this.type = "wait_until";
         this.waitType = waitType != null ? waitType : "proximity";
         this.x = x;
@@ -68,6 +71,7 @@ public class WaitUntilAction implements OrchestratorAction {
         this.radius = Math.max(0.1, radius);
         this.requireAllPlayers = requireAllPlayers;
         this.opsOnlyVisibility = opsOnlyVisibility;
+        this.showRadiusArea = showRadiusArea;
     }
 
     public String getWaitType() {
@@ -148,6 +152,14 @@ public class WaitUntilAction implements OrchestratorAction {
 
     public void setOpsOnlyVisibility(boolean opsOnlyVisibility) {
         this.opsOnlyVisibility = opsOnlyVisibility;
+    }
+
+    public boolean isShowRadiusArea() {
+        return showRadiusArea;
+    }
+
+    public void setShowRadiusArea(boolean showRadiusArea) {
+        this.showRadiusArea = showRadiusArea;
     }
 
     public void trigger() {
@@ -357,6 +369,7 @@ public class WaitUntilAction implements OrchestratorAction {
         copy.setRadius(this.radius);
         copy.setRequireAllPlayers(this.requireAllPlayers);
         copy.setOpsOnlyVisibility(this.opsOnlyVisibility);
+        copy.setShowRadiusArea(this.showRadiusArea);
         return copy;
     }
 }
