@@ -7,15 +7,22 @@ import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class CyberpunkSlider extends AbstractSliderButton {
     private final String prefix;
     private final Consumer<Double> onChange;
+    private final Function<Double, String> messageFormatter;
 
     public CyberpunkSlider(int x, int y, int width, int height, String prefix, double initialValue, Consumer<Double> onChange) {
-        super(x, y, width, height, Component.literal(prefix + ": " + (int) (initialValue * 100) + "%"), initialValue);
+        this(x, y, width, height, prefix, initialValue, onChange, null);
+    }
+
+    public CyberpunkSlider(int x, int y, int width, int height, String prefix, double initialValue, Consumer<Double> onChange, Function<Double, String> messageFormatter) {
+        super(x, y, width, height, Component.empty(), initialValue);
         this.prefix = prefix;
         this.onChange = onChange;
+        this.messageFormatter = messageFormatter;
         updateMessage();
     }
 
@@ -30,7 +37,11 @@ public class CyberpunkSlider extends AbstractSliderButton {
 
     @Override
     protected void updateMessage() {
-        this.setMessage(Component.literal(prefix + ": " + (int) (this.value * 100) + "%"));
+        if (messageFormatter != null) {
+            this.setMessage(Component.literal(messageFormatter.apply(this.value)));
+        } else {
+            this.setMessage(Component.literal(prefix + ": " + (int) (this.value * 100) + "%"));
+        }
     }
 
     @Override

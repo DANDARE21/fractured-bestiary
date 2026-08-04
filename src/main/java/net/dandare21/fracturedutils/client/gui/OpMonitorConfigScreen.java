@@ -1,5 +1,6 @@
 package net.dandare21.fracturedutils.client.gui;
 
+import net.dandare21.fracturedutils.client.ClientConfig;
 import net.dandare21.fracturedutils.client.ClientOpMonitorData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,39 +25,64 @@ public class OpMonitorConfigScreen extends Screen {
         return false;
     }
 
+    private static double scaleToSlider(float scale) {
+        return Math.max(0.0, Math.min(1.0, (scale - 0.5f) / 1.5f));
+    }
+
+    private static float sliderToScale(double sliderValue) {
+        return Math.max(0.5f, Math.min(2.0f, 0.5f + (float) sliderValue * 1.5f));
+    }
+
     @Override
     protected void init() {
         super.init();
 
-        int bottomY = this.height - 40;
         int center = this.width / 2;
+        int sliderY = this.height - 52;
+        int buttonY = this.height - 26;
 
         // Opacity Slider Widget
-        CyberpunkSlider slider = new CyberpunkSlider(center - 160, bottomY, 150, 20, "HUD Opacity", ClientOpMonitorData.getHudOpacity(), val -> {
-            ClientOpMonitorData.setHudOpacity(val.floatValue());
-        });
-        this.addRenderableWidget(slider);
+        CyberpunkSlider opacitySlider = new CyberpunkSlider(center - 155, sliderY, 150, 20, "HUD Opacity",
+                ClientOpMonitorData.getHudOpacity(), val -> {
+                    ClientOpMonitorData.setHudOpacity(val.floatValue());
+                });
+        this.addRenderableWidget(opacitySlider);
+
+        // Size Slider Widget
+        CyberpunkSlider sizeSlider = new CyberpunkSlider(center + 5, sliderY, 150, 20, "HUD Size",
+                scaleToSlider(ClientOpMonitorData.getHudScale()), val -> {
+                    ClientOpMonitorData.setHudScale(sliderToScale(val));
+                }, val -> "HUD Size: " + (int) (sliderToScale(val) * 100) + "%");
+        this.addRenderableWidget(sizeSlider);
 
         // Reset Button
-        this.addRenderableWidget(new CyberpunkButton(center + 0, bottomY, 75, 20, Component.literal("RESET"), b -> {
+        this.addRenderableWidget(new CyberpunkButton(center - 80, buttonY, 75, 20, Component.literal("RESET"), b -> {
             ClientOpMonitorData.resetHudSettings();
-            slider.setValue(ClientOpMonitorData.getHudOpacity());
-        }, CYAN_MAIN, false, Component.literal("Reset position and opacity to defaults")));
+            opacitySlider.setValue(ClientOpMonitorData.getHudOpacity());
+            sizeSlider.setValue(scaleToSlider(ClientOpMonitorData.getHudScale()));
+        }, CYAN_MAIN, false, Component.literal("Reset position, size and opacity to defaults")));
 
         // Done / Save Button
-        this.addRenderableWidget(new CyberpunkButton(center + 80, bottomY, 75, 20, Component.literal("DONE"), b -> {
+        this.addRenderableWidget(new CyberpunkButton(center + 5, buttonY, 75, 20, Component.literal("DONE"), b -> {
+            ClientConfig.save();
             if (this.minecraft != null) {
                 this.minecraft.setScreen(parentScreen);
             }
         }, 0xFF55FF55, false, Component.literal("Save settings and return")));
     }
 
+    @Override
+    public void onClose() {
+        ClientConfig.save();
+        super.onClose();
+    }
+
     private int getHudWidth() {
-        return 260;
+        return (int) (260 * ClientOpMonitorData.getHudScale());
     }
 
     private int getHudHeight() {
-        return 68;
+        return (int) (68 * ClientOpMonitorData.getHudScale());
     }
 
     private int getHudX() {
@@ -91,8 +117,10 @@ public class OpMonitorConfigScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (this.isDragging) {
-            int newX = (int) (mouseX - dragOffsetX);
-            int newY = (int) (mouseY - dragOffsetY);
+            int hW = getHudWidth();
+            int hH = getHudHeight();
+            int newX = Math.max(0, Math.min(this.width - hW, (int) (mouseX - dragOffsetX)));
+            int newY = Math.max(0, Math.min(this.height - hH, (int) (mouseY - dragOffsetY)));
             ClientOpMonitorData.setHudX(newX);
             ClientOpMonitorData.setHudY(newY);
             return true;
@@ -104,6 +132,7 @@ public class OpMonitorConfigScreen extends Screen {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (this.isDragging) {
             this.isDragging = false;
+            ClientConfig.save();
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -115,8 +144,12 @@ public class OpMonitorConfigScreen extends Screen {
         graphics.fill(0, 0, this.width, this.height, 0x88000000);
 
         // Header Instructions
-        graphics.drawCenteredString(this.font, Component.literal("OP MONITOR HUD CONFIGURATION").withStyle(ChatFormatting.BOLD), this.width / 2, 16, CYAN_MAIN);
-        graphics.drawCenteredString(this.font, Component.literal("Click & Drag the HUD overlay to reposition  |  Adjust opacity below"), this.width / 2, 30, 0xFFAABBCC);
+        graphics.drawCenteredString(this.font,
+                Component.literal("OP MONITOR HUD CONFIGURATION").withStyle(ChatFormatting.BOLD), this.width / 2, 16,
+                CYAN_MAIN);
+        graphics.drawCenteredString(this.font,
+                Component.literal("Click & Drag the HUD overlay to reposition  |  Adjust opacity & size below"),
+                this.width / 2, 30, 0xFFAABBCC);
 
         // Render real HUD or preview box
         int hX = getHudX();
@@ -124,30 +157,41 @@ public class OpMonitorConfigScreen extends Screen {
         int hW = getHudWidth();
         int hH = getHudHeight();
 
+        float scale = ClientOpMonitorData.getHudScale();
+        int unscaledW = 260;
+        int unscaledH = 68;
+
         // Render HUD Preview Box with glowing borders
         int alpha = (int) (ClientOpMonitorData.getHudOpacity() * 255) & 0xFF;
         int bgFill = (alpha << 24) | 0x05090C;
         int borderCol = isDragging ? 0xFF00FFFF : CYAN_MAIN;
 
-        graphics.fill(hX, hY, hX + hW, hY + hH, bgFill);
-        graphics.fill(hX, hY, hX + hW, hY + 1, borderCol);
-        graphics.fill(hX, hY + hH - 1, hX + hW, hY + hH, borderCol);
-        graphics.fill(hX, hY, hX + 1, hY + hH, borderCol);
-        graphics.fill(hX + hW - 1, hY, hX + hW, hY + hH, borderCol);
+        graphics.pose().pushPose();
+        graphics.pose().translate(hX, hY, 0);
+        graphics.pose().scale(scale, scale, 1.0f);
+
+        graphics.fill(0, 0, unscaledW, unscaledH, bgFill);
+        graphics.fill(0, 0, unscaledW, 1, borderCol);
+        graphics.fill(0, unscaledH - 1, unscaledW, unscaledH, borderCol);
+        graphics.fill(0, 0, 1, unscaledH, borderCol);
+        graphics.fill(unscaledW - 1, 0, unscaledW, unscaledH, borderCol);
 
         // Inner header tag
-        graphics.fill(hX + 1, hY + 1, hX + hW - 1, hY + 16, 0xBB081622);
-        graphics.drawString(this.font, Component.literal("≡ OP MONITOR PREVIEW (DRAG ME)").withStyle(ChatFormatting.BOLD), hX + 6, hY + 4, borderCol, false);
+        graphics.fill(1, 1, unscaledW - 1, 16, 0xBB081622);
+        graphics.drawString(this.font, Component.literal("≡ OP MONITOR PREVIEW").withStyle(ChatFormatting.BOLD), 6, 4,
+                borderCol, false);
 
-        graphics.drawString(this.font, "✔ [1] COMMAND ACTION", hX + 8, hY + 20, 0xAA88AA88, false);
-        graphics.drawString(this.font, "DONE", hX + hW - 38, hY + 20, 0xFF55FF55, false);
+        graphics.drawString(this.font, "✔ [1] /tp %player% 100 64 200", 8, 20, 0xAA88AA88, false);
+        graphics.drawString(this.font, "DONE", unscaledW - 38, 20, 0xFF55FF55, false);
 
-        graphics.fill(hX + 4, hY + 33, hX + hW - 4, hY + 46, 0xEE082535);
-        graphics.drawString(this.font, "▶ [2] WAIT UNTIL ACTION", hX + 8, hY + 35, 0xFFFFFFFF, false);
-        graphics.drawString(this.font, "RUNNING", hX + hW - 55, hY + 35, CYAN_MAIN, false);
+        graphics.fill(4, 33, unscaledW - 4, 46, 0xEE082535);
+        graphics.drawString(this.font, "▶ [2] Op Action: Press Button", 8, 35, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, "RUNNING", unscaledW - 55, 35, CYAN_MAIN, false);
 
-        graphics.drawString(this.font, "⏳ [3] RUN SUBSEQUENCE", hX + 8, hY + 49, 0xAA8899AA, false);
-        graphics.drawString(this.font, "PENDING", hX + hW - 52, hY + 49, 0xFF667788, false);
+        graphics.drawString(this.font, "⏳ [3] Run Seq: outro.json", 8, 49, 0xAA8899AA, false);
+        graphics.drawString(this.font, "PENDING", unscaledW - 52, 49, 0xFF667788, false);
+
+        graphics.pose().popPose();
 
         // Hover tooltip on preview box
         if (mouseX >= hX && mouseX <= hX + hW && mouseY >= hY && mouseY <= hY + hH) {

@@ -41,6 +41,13 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
                 return RAW_GSON.fromJson(obj, CommandAction.class);
             case "wait_until":
                 return RAW_GSON.fromJson(obj, WaitUntilAction.class);
+            case "proximity":
+            case "marker":
+            case "player_proximity":
+            case "area":
+                WaitUntilAction proxAction = RAW_GSON.fromJson(obj, WaitUntilAction.class);
+                proxAction.setWaitType("proximity");
+                return proxAction;
             case "delay":
                 int ticks = obj.has("ticks") ? obj.get("ticks").getAsInt() : 20;
                 return new WaitUntilAction("delay", ticks, "", "");

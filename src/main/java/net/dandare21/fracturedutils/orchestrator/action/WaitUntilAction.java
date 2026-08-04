@@ -2,18 +2,34 @@ package net.dandare21.fracturedutils.orchestrator.action;
 
 import net.dandare21.fracturedutils.orchestrator.OrchestratorManager;
 import net.dandare21.fracturedutils.orchestrator.SequenceInstance;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Marker;
+
+import java.util.UUID;
 
 public class WaitUntilAction implements OrchestratorAction {
     private String type = "wait_until";
-    private String waitType = "delay"; // "delay", "trigger", "operator_action", "downloads"
+    private String waitType = "delay"; // "delay", "trigger", "operator_action", "downloads", "proximity"
     private int ticks = 20;
     private String triggerId = "";
     private String label = "";
+    private double x = 0.0;
+    private double y = 0.0;
+    private double z = 0.0;
+    private double radius = 3.0;
+    private boolean requireAllPlayers = false;
+    private boolean opsOnlyVisibility = true;
+
     private transient int remainingTicks = -1;
     private transient boolean triggered = false;
     private transient boolean hasSeenActive = false;
     private transient int graceTicks = 0;
+    private transient UUID markerUUID = null;
 
     public WaitUntilAction() {
         this.type = "wait_until";
@@ -21,6 +37,12 @@ public class WaitUntilAction implements OrchestratorAction {
         this.ticks = 20;
         this.triggerId = "";
         this.label = "";
+        this.x = 0.0;
+        this.y = 0.0;
+        this.z = 0.0;
+        this.radius = 3.0;
+        this.requireAllPlayers = false;
+        this.opsOnlyVisibility = true;
     }
 
     public WaitUntilAction(String waitType, int ticks, String triggerId, String label) {
@@ -29,6 +51,23 @@ public class WaitUntilAction implements OrchestratorAction {
         this.ticks = Math.max(0, ticks);
         this.triggerId = triggerId != null ? triggerId : "";
         this.label = label != null ? label : "";
+        this.x = 0.0;
+        this.y = 0.0;
+        this.z = 0.0;
+        this.radius = 3.0;
+        this.requireAllPlayers = false;
+        this.opsOnlyVisibility = true;
+    }
+
+    public WaitUntilAction(String waitType, double x, double y, double z, double radius, boolean requireAllPlayers, boolean opsOnlyVisibility) {
+        this.type = "wait_until";
+        this.waitType = waitType != null ? waitType : "proximity";
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.radius = Math.max(0.1, radius);
+        this.requireAllPlayers = requireAllPlayers;
+        this.opsOnlyVisibility = opsOnlyVisibility;
     }
 
     public String getWaitType() {
@@ -63,12 +102,70 @@ public class WaitUntilAction implements OrchestratorAction {
         this.label = label != null ? label : "";
     }
 
+    public double getX() {
+        return x;
+    }
+
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
+
+    public double getZ() {
+        return z;
+    }
+
+    public void setZ(double z) {
+        this.z = z;
+    }
+
+    public double getRadius() {
+        return radius;
+    }
+
+    public void setRadius(double radius) {
+        this.radius = Math.max(0.1, radius);
+    }
+
+    public boolean isRequireAllPlayers() {
+        return requireAllPlayers;
+    }
+
+    public void setRequireAllPlayers(boolean requireAllPlayers) {
+        this.requireAllPlayers = requireAllPlayers;
+    }
+
+    public boolean isOpsOnlyVisibility() {
+        return opsOnlyVisibility;
+    }
+
+    public void setOpsOnlyVisibility(boolean opsOnlyVisibility) {
+        this.opsOnlyVisibility = opsOnlyVisibility;
+    }
+
     public void trigger() {
         this.triggered = true;
     }
 
     public boolean isTriggered() {
         return triggered;
+    }
+
+    private void cleanupMarker(ServerLevel level) {
+        if (markerUUID != null && level != null) {
+            Entity entity = level.getEntity(markerUUID);
+            if (entity != null) {
+                entity.discard();
+            }
+            markerUUID = null;
+        }
     }
 
     @Override
@@ -145,6 +242,97 @@ public class WaitUntilAction implements OrchestratorAction {
             }
             graceTicks = 0;
             return ActionResult.SUCCESS;
+        } else if (mode.equals("waiting_room_ready") || mode.equals("waiting_room_all_ready") || mode.equals("waitingroom_ready")) {
+            boolean allReady = net.dandare21.fracturedutils.waitingroom.WaitingRoomManager.getInstance().areAllPlayersReady(server);
+            if (!allReady) {
+                hasSeenActive = true;
+                return ActionResult.BLOCK;
+            }
+            if (hasSeenActive) {
+                hasSeenActive = false;
+                graceTicks = 0;
+                return ActionResult.SUCCESS;
+            }
+            graceTicks++;
+            if (graceTicks < 10) {
+                return ActionResult.BLOCK;
+            }
+            graceTicks = 0;
+            return ActionResult.SUCCESS;
+        } else if (mode.equals("proximity") || mode.equals("marker") || mode.equals("player_proximity") || mode.equals("area")) {
+            ServerLevel level = null;
+            String targetName = instance.getTargetPlayerName();
+            ServerPlayer targetPlayer = (targetName != null && !targetName.isBlank())
+                    ? server.getPlayerList().getPlayerByName(targetName)
+                    : null;
+
+            if (targetPlayer != null) {
+                level = targetPlayer.serverLevel();
+            } else if (server != null) {
+                level = server.overworld();
+            }
+
+            if (level == null) {
+                return ActionResult.BLOCK;
+            }
+
+            // Spawn marker entity if not spawned yet
+            if (markerUUID == null) {
+                Marker marker = new Marker(EntityType.MARKER, level);
+                marker.setPos(x, y, z);
+                level.addFreshEntity(marker);
+                this.markerUUID = marker.getUUID();
+            }
+
+            // Check if player is within radius
+            double effectiveRadius = radius > 0 ? radius : 3.0;
+            double radSq = effectiveRadius * effectiveRadius;
+            boolean conditionMet = false;
+
+            java.util.List<ServerPlayer> players = level.players();
+
+            if (requireAllPlayers) {
+                if (!players.isEmpty()) {
+                    boolean allInside = true;
+                    for (ServerPlayer player : players) {
+                        if (player.distanceToSqr(x, y, z) > radSq) {
+                            allInside = false;
+                            break;
+                        }
+                    }
+                    conditionMet = allInside;
+                }
+            } else {
+                if (targetPlayer != null && targetPlayer.level() == level) {
+                    conditionMet = (targetPlayer.distanceToSqr(x, y, z) <= radSq);
+                } else {
+                    for (ServerPlayer player : players) {
+                        if (player.distanceToSqr(x, y, z) <= radSq) {
+                            conditionMet = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (conditionMet) {
+                cleanupMarker(level);
+                return ActionResult.SUCCESS;
+            } else {
+                // Emit static marker particle at target location (like barrier block)
+                if (level.getGameTime() % 10 == 0) {
+                    if (opsOnlyVisibility) {
+                        for (ServerPlayer player : level.players()) {
+                            if (player != null && player.hasPermissions(2)) {
+                                level.sendParticles(player, net.dandare21.fracturedutils.particle.ModParticles.MARKER_PARTICLE.get(), false, x, y + 0.5, z, 1, 0.0, 0.0, 0.0, 0.0);
+                            }
+                        }
+                    } else {
+                        level.sendParticles(net.dandare21.fracturedutils.particle.ModParticles.MARKER_PARTICLE.get(), x, y + 0.5, z, 1, 0.0, 0.0, 0.0, 0.0);
+                    }
+                }
+                return ActionResult.BLOCK;
+            }
         } else {
             // "trigger"
             if (triggered) {
@@ -162,6 +350,13 @@ public class WaitUntilAction implements OrchestratorAction {
 
     @Override
     public OrchestratorAction copy() {
-        return new WaitUntilAction(this.waitType, this.ticks, this.triggerId, this.label);
+        WaitUntilAction copy = new WaitUntilAction(this.waitType, this.ticks, this.triggerId, this.label);
+        copy.setX(this.x);
+        copy.setY(this.y);
+        copy.setZ(this.z);
+        copy.setRadius(this.radius);
+        copy.setRequireAllPlayers(this.requireAllPlayers);
+        copy.setOpsOnlyVisibility(this.opsOnlyVisibility);
+        return copy;
     }
 }

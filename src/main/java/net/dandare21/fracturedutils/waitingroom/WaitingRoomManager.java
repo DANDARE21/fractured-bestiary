@@ -58,6 +58,19 @@ public class WaitingRoomManager {
         return readyPlayers.contains(uuid);
     }
 
+    public boolean areAllPlayersReady(MinecraftServer server) {
+        if (!active) return true;
+        if (server == null) return true;
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        if (players.isEmpty()) return true;
+        for (ServerPlayer player : players) {
+            if (player != null && !readyPlayers.contains(player.getUUID())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public void start(MinecraftServer server, String title) {
         this.active = true;
         this.countingDown = false;

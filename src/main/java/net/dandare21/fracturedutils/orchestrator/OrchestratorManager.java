@@ -137,28 +137,7 @@ public class OrchestratorManager {
         if (server == null) return;
         List<S2CSyncSequenceTelemetryPacket.SequenceTelemetryData> telemetryList = new ArrayList<>();
         for (SequenceInstance seq : activeRootSequences) {
-            List<S2CSyncSequenceTelemetryPacket.ActionInfo> actionInfos = new ArrayList<>();
-            for (OrchestratorAction action : seq.getActions()) {
-                String type = action.getType();
-                String details = "";
-                if (action instanceof CommandAction ca) {
-                    details = ca.getRun();
-                } else if (action instanceof WaitUntilAction wua) {
-                    details = wua.getWaitType();
-                } else if (action instanceof ForkSequenceAction fsa) {
-                    details = fsa.getFile();
-                } else if (action instanceof RunSequenceAction rsa) {
-                    details = rsa.getFile();
-                }
-                actionInfos.add(new S2CSyncSequenceTelemetryPacket.ActionInfo(type, details));
-            }
-            telemetryList.add(new S2CSyncSequenceTelemetryPacket.SequenceTelemetryData(
-                    seq.getSequenceName(),
-                    seq.getTargetPlayerName(),
-                    seq.getCurrentIndex(),
-                    seq.getState().name(),
-                    actionInfos
-            ));
+            collectSequenceTelemetry(seq, telemetryList);
         }
 
         S2CSyncSequenceTelemetryPacket packet = new S2CSyncSequenceTelemetryPacket(telemetryList);
@@ -169,9 +148,64 @@ public class OrchestratorManager {
         }
     }
 
+    private void collectSequenceTelemetry(SequenceInstance seq, List<S2CSyncSequenceTelemetryPacket.SequenceTelemetryData> list) {
+        List<S2CSyncSequenceTelemetryPacket.ActionInfo> actionInfos = new ArrayList<>();
+        for (OrchestratorAction action : seq.getActions()) {
+            String type = action.getType();
+            String details = getActionDetails(action);
+            actionInfos.add(new S2CSyncSequenceTelemetryPacket.ActionInfo(type, details));
+        }
+        list.add(new S2CSyncSequenceTelemetryPacket.SequenceTelemetryData(
+                seq.getSequenceName(),
+                seq.getTargetPlayerName(),
+                seq.getCurrentIndex(),
+                seq.getState().name(),
+                actionInfos
+        ));
+        for (SequenceInstance child : seq.getActiveChildren()) {
+            if (child != null && child.getState() != SequenceState.FINISHED) {
+                collectSequenceTelemetry(child, list);
+            }
+        }
+    }
+
+    private String getActionDetails(OrchestratorAction action) {
+        if (action instanceof CommandAction ca) {
+            return ca.getRun();
+        } else if (action instanceof DelayAction da) {
+            return String.valueOf(da.getTicks());
+        } else if (action instanceof WaitUntilAction wua) {
+            String mode = wua.getWaitType().toLowerCase(Locale.ROOT);
+            if (mode.equals("delay")) {
+                return String.valueOf(wua.getTicks());
+            } else if (mode.equals("operator_action")) {
+                String lbl = wua.getLabel();
+                return "operator_action:" + (!lbl.isBlank() ? lbl : wua.getTriggerId());
+            } else if (mode.equals("trigger")) {
+                return "trigger:" + wua.getTriggerId();
+            } else if (mode.equals("proximity") || mode.equals("marker") || mode.equals("player_proximity") || mode.equals("area")) {
+                String modeTag = wua.isRequireAllPlayers() ? "ALL" : "ANY";
+                String visTag = wua.isOpsOnlyVisibility() ? "Ops" : "All";
+                return String.format(Locale.ROOT, "proximity:%.1f,%.1f,%.1f r=%.1f (%s, %s)", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), modeTag, visTag);
+            } else {
+                return wua.getWaitType();
+            }
+        } else if (action instanceof AwaitTriggerAction ata) {
+            return ata.getTriggerId();
+        } else if (action instanceof ForkSequenceAction fsa) {
+            return fsa.getFile();
+        } else if (action instanceof RunSequenceAction rsa) {
+            return rsa.getFile();
+        } else if (action instanceof StallParentAction) {
+            return "parent";
+        } else if (action instanceof ResumeParentAction) {
+            return "parent";
+        }
+        return "";
+    }
+
     public void onPlayerLoggedOut(ServerPlayer player) {
-        String playerName = player.getScoreboardName();
-        activeRootSequences.removeIf(seq -> seq.getTargetPlayerName() != null && seq.getTargetPlayerName().equalsIgnoreCase(playerName));
+        // Sequences execute on the server thread independently of player disconnects.
     }
 
     public boolean resumeTrigger(String playerName, String triggerId) {

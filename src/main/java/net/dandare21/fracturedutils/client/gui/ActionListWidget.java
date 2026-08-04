@@ -319,10 +319,16 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 } else if (mode.equals("operator_action")) {
                     String lbl = wua.getLabel();
                     return "Operator Action: " + (lbl.isEmpty() ? wua.getTriggerId() : lbl);
+                } else if (mode.equals("proximity") || mode.equals("marker") || mode.equals("player_proximity") || mode.equals("area")) {
+                    String reqText = wua.isRequireAllPlayers() ? "ALL players" : "ANY player";
+                    String visText = wua.isOpsOnlyVisibility() ? "Ops Only" : "Visible to All";
+                    return String.format(java.util.Locale.ROOT, "Marker (%.1f, %.1f, %.1f) r=%.1fm [%s, %s]", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), reqText, visText);
                 } else if (mode.equals("video") || mode.equals("video_end") || mode.equals("cutscene") || mode.equals("cinematic")) {
                     return "Wait for active video to end";
                 } else if (mode.equals("waiting_room") || mode.equals("waiting_room_end") || mode.equals("waitingroom")) {
                     return "Wait for active waiting room to end";
+                } else if (mode.equals("waiting_room_ready") || mode.equals("waiting_room_all_ready") || mode.equals("waitingroom_ready")) {
+                    return "Wait until all players in waiting room are ready";
                 } else if (mode.equals("downloads") || mode.equals("downloads_end") || mode.equals("cutscene_downloads") || mode.equals("video_downloads")) {
                     return "Wait for cutscene downloads to complete";
                 } else {

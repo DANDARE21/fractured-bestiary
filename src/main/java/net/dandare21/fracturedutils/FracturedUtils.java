@@ -23,6 +23,8 @@ public class FracturedUtils
     {
         IEventBus modEventBus = context.getModEventBus();
 
+        net.dandare21.fracturedutils.particle.ModParticles.register(modEventBus);
+
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::addCreative);
 
@@ -51,6 +53,12 @@ public class FracturedUtils
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event)
         {
+        }
+
+        @SubscribeEvent
+        public static void registerParticleProviders(net.minecraftforge.client.event.RegisterParticleProvidersEvent event)
+        {
+            event.registerSpriteSet(net.dandare21.fracturedutils.particle.ModParticles.MARKER_PARTICLE.get(), net.dandare21.fracturedutils.particle.MarkerParticle.Provider::new);
         }
     }
 }

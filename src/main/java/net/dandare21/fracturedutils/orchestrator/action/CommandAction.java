@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 public class CommandAction implements OrchestratorAction {
     private String type = "command";
@@ -51,12 +52,30 @@ public class CommandAction implements OrchestratorAction {
 
     @Override
     public ActionResult execute(SequenceInstance instance, MinecraftServer server) {
-        String playerName = instance.getTargetPlayerName();
-        String command = run.replace("%player%", playerName != null ? playerName : "");
+        if (server == null || run == null || run.isBlank()) {
+            return ActionResult.SUCCESS;
+        }
 
-        CommandSourceStack source = server.createCommandSourceStack()
-                .withPermission(4)
-                .withSuppressedOutput();
+        String targetPlayerName = instance.getTargetPlayerName();
+        String command = run.replace("%player%", targetPlayerName != null ? targetPlayerName : "");
+        if (command.startsWith("/")) {
+            command = command.substring(1);
+        }
+
+        CommandSourceStack source;
+        ServerPlayer targetPlayer = (targetPlayerName != null && !targetPlayerName.isBlank())
+                ? server.getPlayerList().getPlayerByName(targetPlayerName)
+                : null;
+
+        if (targetPlayer != null) {
+            source = targetPlayer.createCommandSourceStack()
+                    .withPermission(4)
+                    .withSuppressedOutput();
+        } else {
+            source = server.createCommandSourceStack()
+                    .withPermission(4)
+                    .withSuppressedOutput();
+        }
 
         server.getCommands().performPrefixedCommand(source, command);
         return ActionResult.SUCCESS;

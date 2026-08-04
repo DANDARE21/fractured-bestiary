@@ -34,6 +34,13 @@ public class EditActionModalScreen extends Screen {
     private CyberpunkDropdown<DelayUnit> unitDropdown;
 
     private EditBox inputField;
+    private EditBox xField;
+    private EditBox yField;
+    private EditBox zField;
+    private EditBox radiusField;
+    private CyberpunkCheckbox requireAllPlayersCheckbox;
+    private CyberpunkCheckbox opsOnlyVisibilityCheckbox;
+    private CyberpunkButton setMyPositionButton;
     private CommandSuggestions commandSuggestions;
 
     public EditActionModalScreen(Screen parentScreen, OrchestratorAction action, Consumer<OrchestratorAction> onSave) {
@@ -86,7 +93,7 @@ public class EditActionModalScreen extends Screen {
     @Override
     protected void init() {
         int panelWidth = 360;
-        int panelHeight = 220;
+        int panelHeight = 245;
         int left = (this.width - panelWidth) / 2;
         int top = (this.height - panelHeight) / 2;
 
@@ -130,10 +137,12 @@ public class EditActionModalScreen extends Screen {
         if (actionType.equalsIgnoreCase("wait_until")) {
             List<CyberpunkDropdown.DropdownEntry<String>> subEntries = new ArrayList<>();
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("delay", Component.literal("Delay Duration"), Component.literal("Wait for specific ticks/seconds/minutes")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("proximity", Component.literal("Player Proximity Marker"), Component.literal("Spawns marker entity at (X, Y, Z) and waits for player radius")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("trigger", Component.literal("Event Trigger"), Component.literal("Wait for /orchestrator trigger event")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("operator_action", Component.literal("Operator Action Button"), Component.literal("Display interactive action button on HUD")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("video", Component.literal("Video / Cutscene End"), Component.literal("Wait until active video/cinematic ends")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("waiting_room", Component.literal("Waiting Room End"), Component.literal("Wait until active waiting room phase finishes")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("waiting_room_ready", Component.literal("Waiting Room All Ready"), Component.literal("Wait until all players in waiting room click ready")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("downloads", Component.literal("Cutscene Downloads End"), Component.literal("Wait until all players finish downloading remaining cutscenes")));
 
             this.subActionTypeDropdown = new CyberpunkDropdown<>(left + 20, top + 60, panelWidth - 40, 20, Component.literal("Subaction Condition"));
@@ -225,6 +234,72 @@ public class EditActionModalScreen extends Screen {
                 } else if (waitUntilType.equalsIgnoreCase("trigger")) {
                     this.inputField.setValue(wua.getTriggerId().isEmpty() ? "trigger_1" : wua.getTriggerId());
                     this.addRenderableWidget(this.inputField);
+                } else if (waitUntilType.equalsIgnoreCase("proximity") || waitUntilType.equalsIgnoreCase("marker") || waitUntilType.equalsIgnoreCase("player_proximity") || waitUntilType.equalsIgnoreCase("area")) {
+                    double defaultX = 0.0, defaultY = 64.0, defaultZ = 0.0, defaultRadius = 3.0;
+                    boolean defaultRequireAll = false;
+                    boolean defaultOpsOnly = true;
+                    if (action instanceof WaitUntilAction w) {
+                        defaultX = w.getX();
+                        defaultY = w.getY();
+                        defaultZ = w.getZ();
+                        defaultRadius = w.getRadius();
+                        defaultRequireAll = w.isRequireAllPlayers();
+                        defaultOpsOnly = w.isOpsOnlyVisibility();
+                    }
+
+                    int boxW = 70;
+                    int boxH = 18;
+                    int boxY = top + 108;
+
+                    this.xField = new EditBox(this.font, left + 22, boxY, boxW - 4, boxH, Component.literal("X"));
+                    this.xField.setBordered(false);
+                    this.xField.setValue(String.format(Locale.US, "%.1f", defaultX));
+                    this.addRenderableWidget(this.xField);
+
+                    this.yField = new EditBox(this.font, left + 102, boxY, boxW - 4, boxH, Component.literal("Y"));
+                    this.yField.setBordered(false);
+                    this.yField.setValue(String.format(Locale.US, "%.1f", defaultY));
+                    this.addRenderableWidget(this.yField);
+
+                    this.zField = new EditBox(this.font, left + 182, boxY, boxW - 4, boxH, Component.literal("Z"));
+                    this.zField.setBordered(false);
+                    this.zField.setValue(String.format(Locale.US, "%.1f", defaultZ));
+                    this.addRenderableWidget(this.zField);
+
+                    this.radiusField = new EditBox(this.font, left + 262, boxY, boxW - 4, boxH, Component.literal("Radius"));
+                    this.radiusField.setBordered(false);
+                    this.radiusField.setValue(String.format(Locale.US, "%.1f", defaultRadius));
+                    this.addRenderableWidget(this.radiusField);
+
+                    this.setMyPositionButton = new CyberpunkButton(
+                            left + 20, top + 130, 130, 18,
+                            Component.literal("📍 SET TO MY POS"),
+                            b -> {
+                                if (this.minecraft != null && this.minecraft.player != null) {
+                                    double px = this.minecraft.player.getX();
+                                    double py = this.minecraft.player.getY();
+                                    double pz = this.minecraft.player.getZ();
+                                    if (xField != null) xField.setValue(String.format(Locale.US, "%.1f", px));
+                                    if (yField != null) yField.setValue(String.format(Locale.US, "%.1f", py));
+                                    if (zField != null) zField.setValue(String.format(Locale.US, "%.1f", pz));
+                                }
+                            }, CYAN_MAIN, false, Component.literal("Copy your player's current X, Y, Z coordinates into fields")
+                    );
+                    this.addRenderableWidget(this.setMyPositionButton);
+
+                    this.requireAllPlayersCheckbox = new CyberpunkCheckbox(
+                            left + 20, top + 154, panelWidth - 40, 18,
+                            Component.literal("Require ALL Players inside Radius (Default: ANY Player)"),
+                            defaultRequireAll, null
+                    );
+                    this.addRenderableWidget(this.requireAllPlayersCheckbox);
+
+                    this.opsOnlyVisibilityCheckbox = new CyberpunkCheckbox(
+                            left + 20, top + 176, panelWidth - 40, 18,
+                            Component.literal("Show Marker Particle to OPS ONLY (Default: Ops Only)"),
+                            defaultOpsOnly, null
+                    );
+                    this.addRenderableWidget(this.opsOnlyVisibilityCheckbox);
                 }
             } else if (action instanceof DelayAction da) {
                 updateDelayInputField(da.getTicks());
@@ -320,8 +395,10 @@ public class EditActionModalScreen extends Screen {
     }
 
     private void applyInputValue() {
-        if (inputField == null) return;
-        String val = inputField.getValue().trim();
+        boolean isProximityMode = actionType.equalsIgnoreCase("wait_until") &&
+                (waitUntilType.equalsIgnoreCase("proximity") || waitUntilType.equalsIgnoreCase("marker") || waitUntilType.equalsIgnoreCase("player_proximity") || waitUntilType.equalsIgnoreCase("area"));
+
+        String val = inputField != null ? inputField.getValue().trim() : "";
 
         if (action instanceof CommandAction ca) {
             ca.setRun(val);
@@ -336,6 +413,18 @@ public class EditActionModalScreen extends Screen {
                 wua.setTriggerId("");
             } else if (waitUntilType.equalsIgnoreCase("trigger")) {
                 wua.setTriggerId(val);
+            } else if (isProximityMode) {
+                if (xField != null) try { wua.setX(Double.parseDouble(xField.getValue().trim())); } catch (Exception ignored) {}
+                if (yField != null) try { wua.setY(Double.parseDouble(yField.getValue().trim())); } catch (Exception ignored) {}
+                if (zField != null) try { wua.setZ(Double.parseDouble(zField.getValue().trim())); } catch (Exception ignored) {}
+                if (radiusField != null) try { wua.setRadius(Double.parseDouble(radiusField.getValue().trim())); } catch (Exception ignored) {}
+                if (requireAllPlayersCheckbox != null) {
+                    wua.setRequireAllPlayers(requireAllPlayersCheckbox.isChecked());
+                }
+                if (opsOnlyVisibilityCheckbox != null) {
+                    wua.setOpsOnlyVisibility(opsOnlyVisibilityCheckbox.isChecked());
+                }
+                wua.setTriggerId("");
             } else {
                 wua.setTriggerId("");
             }
@@ -449,7 +538,7 @@ public class EditActionModalScreen extends Screen {
         drawGridOverlay(graphics);
 
         int panelWidth = 360;
-        int panelHeight = 220;
+        int panelHeight = 245;
         int left = (this.width - panelWidth) / 2;
         int top = (this.height - panelHeight) / 2;
 
@@ -471,6 +560,9 @@ public class EditActionModalScreen extends Screen {
         int promptColor;
         boolean showInputFieldBox = true;
 
+        boolean isProximityMode = actionType.equalsIgnoreCase("wait_until") &&
+                (waitUntilType.equalsIgnoreCase("proximity") || waitUntilType.equalsIgnoreCase("marker") || waitUntilType.equalsIgnoreCase("player_proximity") || waitUntilType.equalsIgnoreCase("area"));
+
         if (actionType.equalsIgnoreCase("command")) {
             promptLabel = isCommandInvalid ? "Command String (%player% supported) - ⚠ INVALID SYNTAX" : "Command String (%player% supported):";
             promptColor = isCommandInvalid ? 0xFFFF3355 : 0xFFAABBCC;
@@ -480,15 +572,17 @@ public class EditActionModalScreen extends Screen {
         } else if (actionType.equalsIgnoreCase("wait_until")) {
             promptLabel = switch (waitUntilType.toLowerCase()) {
                 case "delay" -> "Wait Duration (" + delayUnit.name() + "):";
+                case "proximity", "marker", "player_proximity", "area" -> "Marker Location Coordinates & Radius:";
                 case "trigger" -> "Trigger ID Event Name:";
                 case "operator_action" -> "Operator Action Button Description:";
                 case "video", "video_end", "cutscene", "cinematic" -> "Pauses sequence until active video/cinematic playback ends.";
                 case "waiting_room", "waiting_room_end", "waitingroom" -> "Pauses sequence until active event waiting room ends.";
+                case "waiting_room_ready", "waiting_room_all_ready", "waitingroom_ready" -> "Pauses sequence until all players in waiting room click ready.";
                 case "downloads", "downloads_end", "cutscene_downloads", "video_downloads" -> "Pauses sequence until all players finish downloading remaining cutscenes.";
                 default -> "Pauses sequence until trigger event occurs.";
             };
             promptColor = 0xFFAABBCC;
-            if (waitUntilType.equalsIgnoreCase("video") || waitUntilType.equalsIgnoreCase("waiting_room") || waitUntilType.equalsIgnoreCase("downloads")) {
+            if (isProximityMode || waitUntilType.equalsIgnoreCase("video") || waitUntilType.equalsIgnoreCase("waiting_room") || waitUntilType.equalsIgnoreCase("waiting_room_ready") || waitUntilType.equalsIgnoreCase("downloads")) {
                 showInputFieldBox = false;
             }
         } else if (actionType.equalsIgnoreCase("stall_parent") || actionType.equalsIgnoreCase("resume_parent")) {
@@ -503,9 +597,21 @@ public class EditActionModalScreen extends Screen {
             promptColor = 0xFFAABBCC;
         }
 
-        // Draw Prompt Label
-        int labelY = (actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay")) ? top + 114 : top + 104;
-        graphics.drawString(this.font, promptLabel, left + 20, labelY, promptColor, false);
+        // Draw Prompt Label / Headers
+        if (isProximityMode) {
+            graphics.drawString(this.font, "X Coord", left + 20, top + 94, 0xFFAABBCC, false);
+            graphics.drawString(this.font, "Y Coord", left + 100, top + 94, 0xFFAABBCC, false);
+            graphics.drawString(this.font, "Z Coord", left + 180, top + 94, 0xFFAABBCC, false);
+            graphics.drawString(this.font, "Radius (m)", left + 260, top + 94, 0xFFAABBCC, false);
+
+            drawBorderBox(graphics, left + 20, top + 106, 70, 20, 0xAA00E5FF, 0xEE08121B);
+            drawBorderBox(graphics, left + 100, top + 106, 70, 20, 0xAA00E5FF, 0xEE08121B);
+            drawBorderBox(graphics, left + 180, top + 106, 70, 20, 0xAA00E5FF, 0xEE08121B);
+            drawBorderBox(graphics, left + 260, top + 106, 70, 20, 0xAA00E5FF, 0xEE08121B);
+        } else {
+            int labelY = (actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay")) ? top + 114 : top + 104;
+            graphics.drawString(this.font, promptLabel, left + 20, labelY, promptColor, false);
+        }
 
         // Draw Delay Summary Breakdown
         boolean isDelayMode = actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay");
