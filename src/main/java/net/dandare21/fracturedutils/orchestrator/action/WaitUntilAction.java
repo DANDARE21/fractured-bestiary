@@ -24,6 +24,7 @@ public class WaitUntilAction implements OrchestratorAction {
     private double radius = 3.0;
     private boolean requireAllPlayers = false;
     private boolean opsOnlyVisibility = true;
+    private boolean areaOpsOnlyVisibility = true;
     private boolean showRadiusArea = true;
 
     private transient int remainingTicks = -1;
@@ -44,6 +45,7 @@ public class WaitUntilAction implements OrchestratorAction {
         this.radius = 3.0;
         this.requireAllPlayers = false;
         this.opsOnlyVisibility = true;
+        this.areaOpsOnlyVisibility = true;
         this.showRadiusArea = true;
     }
 
@@ -59,10 +61,15 @@ public class WaitUntilAction implements OrchestratorAction {
         this.radius = 3.0;
         this.requireAllPlayers = false;
         this.opsOnlyVisibility = true;
+        this.areaOpsOnlyVisibility = true;
         this.showRadiusArea = true;
     }
 
     public WaitUntilAction(String waitType, double x, double y, double z, double radius, boolean requireAllPlayers, boolean opsOnlyVisibility, boolean showRadiusArea) {
+        this(waitType, x, y, z, radius, requireAllPlayers, opsOnlyVisibility, true, showRadiusArea);
+    }
+
+    public WaitUntilAction(String waitType, double x, double y, double z, double radius, boolean requireAllPlayers, boolean opsOnlyVisibility, boolean areaOpsOnlyVisibility, boolean showRadiusArea) {
         this.type = "wait_until";
         this.waitType = waitType != null ? waitType : "proximity";
         this.x = x;
@@ -71,6 +78,7 @@ public class WaitUntilAction implements OrchestratorAction {
         this.radius = Math.max(0.1, radius);
         this.requireAllPlayers = requireAllPlayers;
         this.opsOnlyVisibility = opsOnlyVisibility;
+        this.areaOpsOnlyVisibility = areaOpsOnlyVisibility;
         this.showRadiusArea = showRadiusArea;
     }
 
@@ -152,6 +160,14 @@ public class WaitUntilAction implements OrchestratorAction {
 
     public void setOpsOnlyVisibility(boolean opsOnlyVisibility) {
         this.opsOnlyVisibility = opsOnlyVisibility;
+    }
+
+    public boolean isAreaOpsOnlyVisibility() {
+        return areaOpsOnlyVisibility;
+    }
+
+    public void setAreaOpsOnlyVisibility(boolean areaOpsOnlyVisibility) {
+        this.areaOpsOnlyVisibility = areaOpsOnlyVisibility;
     }
 
     public boolean isShowRadiusArea() {
@@ -369,6 +385,7 @@ public class WaitUntilAction implements OrchestratorAction {
         copy.setRadius(this.radius);
         copy.setRequireAllPlayers(this.requireAllPlayers);
         copy.setOpsOnlyVisibility(this.opsOnlyVisibility);
+        copy.setAreaOpsOnlyVisibility(this.areaOpsOnlyVisibility);
         copy.setShowRadiusArea(this.showRadiusArea);
         return copy;
     }

@@ -4,7 +4,7 @@
   "gui.fracturedutils.waiting_room.hud_players": "👥 JUGADORES: %d/%d",
   "gui.fracturedutils.waiting_room.waiting": "ESPERANDO",
   "gui.fracturedutils.waiting_room.starting": "INICIANDO",
-  "gui.fracturedutils.waiting_room.chat_title": "💬 CHAT",
+  "gui.fracturedutils.waiting_room.chat_title": "CHAT",
   "gui.fracturedutils.waiting_room.chat_hint": "Escribe un mensaje...",
   "gui.fracturedutils.waiting_room.ready_up": "¡LISTO!",
   "gui.fracturedutils.waiting_room.cancel": "CANCELAR",

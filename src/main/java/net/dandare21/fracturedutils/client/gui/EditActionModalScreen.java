@@ -40,6 +40,7 @@ public class EditActionModalScreen extends Screen {
     private EditBox radiusField;
     private CyberpunkCheckbox requireAllPlayersCheckbox;
     private CyberpunkCheckbox opsOnlyVisibilityCheckbox;
+    private CyberpunkCheckbox areaOpsOnlyCheckbox;
     private CyberpunkCheckbox showRadiusAreaCheckbox;
     private CyberpunkButton setMyPositionButton;
     private CommandSuggestions commandSuggestions;
@@ -94,7 +95,7 @@ public class EditActionModalScreen extends Screen {
     @Override
     protected void init() {
         int panelWidth = 360;
-        int panelHeight = 265;
+        int panelHeight = 285;
         int left = (this.width - panelWidth) / 2;
         int top = (this.height - panelHeight) / 2;
 
@@ -124,6 +125,7 @@ public class EditActionModalScreen extends Screen {
         this.actionTypeDropdown.setOnSelect(entry -> {
             String newType = entry.getValue();
             if (!newType.equalsIgnoreCase(this.actionType)) {
+                applyInputValue();
                 this.actionType = newType;
                 if (newType.equalsIgnoreCase("await_trigger")) {
                     this.waitUntilType = "trigger";
@@ -157,6 +159,7 @@ public class EditActionModalScreen extends Screen {
             });
             this.subActionTypeDropdown.setOnSelect(entry -> {
                 String newSub = entry.getValue();
+                applyInputValue();
                 this.waitUntilType = newSub;
                 if (action instanceof WaitUntilAction wua) {
                     wua.setWaitType(newSub);
@@ -238,7 +241,8 @@ public class EditActionModalScreen extends Screen {
                 } else if (waitUntilType.equalsIgnoreCase("proximity") || waitUntilType.equalsIgnoreCase("marker") || waitUntilType.equalsIgnoreCase("player_proximity") || waitUntilType.equalsIgnoreCase("area")) {
                     double defaultX = 0.0, defaultY = 64.0, defaultZ = 0.0, defaultRadius = 3.0;
                     boolean defaultRequireAll = false;
-                    boolean defaultOpsOnly = true;
+                    boolean defaultMarkerOpsOnly = true;
+                    boolean defaultAreaOpsOnly = true;
                     boolean defaultShowArea = true;
                     if (action instanceof WaitUntilAction w) {
                         defaultX = w.getX();
@@ -246,7 +250,8 @@ public class EditActionModalScreen extends Screen {
                         defaultZ = w.getZ();
                         defaultRadius = w.getRadius();
                         defaultRequireAll = w.isRequireAllPlayers();
-                        defaultOpsOnly = w.isOpsOnlyVisibility();
+                        defaultMarkerOpsOnly = w.isOpsOnlyVisibility();
+                        defaultAreaOpsOnly = w.isAreaOpsOnlyVisibility();
                         defaultShowArea = w.isShowRadiusArea();
                     }
 
@@ -291,25 +296,32 @@ public class EditActionModalScreen extends Screen {
                     this.addRenderableWidget(this.setMyPositionButton);
 
                     this.requireAllPlayersCheckbox = new CyberpunkCheckbox(
-                            left + 20, top + 154, panelWidth - 40, 18,
+                            left + 20, top + 152, panelWidth - 40, 18,
                             Component.literal("Require ALL Players inside Radius (Default: ANY Player)"),
                             defaultRequireAll, null
                     );
                     this.addRenderableWidget(this.requireAllPlayersCheckbox);
 
                     this.opsOnlyVisibilityCheckbox = new CyberpunkCheckbox(
-                            left + 20, top + 176, panelWidth - 40, 18,
-                            Component.literal("Show Marker Icon & Area to OPS ONLY (Unchecked: All Players)"),
-                            defaultOpsOnly, null
+                            left + 20, top + 172, panelWidth - 40, 18,
+                            Component.literal("Show Marker Icon to OPS ONLY (Unchecked: All Players)"),
+                            defaultMarkerOpsOnly, null
                     );
                     this.addRenderableWidget(this.opsOnlyVisibilityCheckbox);
 
                     this.showRadiusAreaCheckbox = new CyberpunkCheckbox(
-                            left + 20, top + 198, panelWidth - 40, 18,
+                            left + 20, top + 192, panelWidth - 40, 18,
                             Component.literal("Render Gradient Area Cylinder Mesh around Radius"),
                             defaultShowArea, null
                     );
                     this.addRenderableWidget(this.showRadiusAreaCheckbox);
+
+                    this.areaOpsOnlyCheckbox = new CyberpunkCheckbox(
+                            left + 20, top + 212, panelWidth - 40, 18,
+                            Component.literal("Show Area Cylinder Mesh to OPS ONLY (Unchecked: All Players)"),
+                            defaultAreaOpsOnly, null
+                    );
+                    this.addRenderableWidget(this.areaOpsOnlyCheckbox);
                 }
             } else if (action instanceof DelayAction da) {
                 updateDelayInputField(da.getTicks());
@@ -360,6 +372,11 @@ public class EditActionModalScreen extends Screen {
         if (this.delayUnit == newUnit) return;
         int currentTicks = calculateDelayTicks();
         this.delayUnit = newUnit;
+        if (action instanceof WaitUntilAction wua) {
+            wua.setTicks(currentTicks);
+        } else if (action instanceof DelayAction da) {
+            da.setTicks(currentTicks);
+        }
         updateDelayInputField(currentTicks);
     }
 
@@ -436,6 +453,12 @@ public class EditActionModalScreen extends Screen {
                 if (opsOnlyVisibilityCheckbox != null) {
                     wua.setOpsOnlyVisibility(opsOnlyVisibilityCheckbox.isChecked());
                 }
+                if (showRadiusAreaCheckbox != null) {
+                    wua.setShowRadiusArea(showRadiusAreaCheckbox.isChecked());
+                }
+                if (areaOpsOnlyCheckbox != null) {
+                    wua.setAreaOpsOnlyVisibility(areaOpsOnlyCheckbox.isChecked());
+                }
                 wua.setTriggerId("");
             } else {
                 wua.setTriggerId("");
@@ -468,7 +491,7 @@ public class EditActionModalScreen extends Screen {
     }
 
     private double getSuggestionOffsetY() {
-        int panelHeight = 220;
+        int panelHeight = 285;
         int top = (this.height - panelHeight) / 2;
         int fieldY = top + 120;
         return (fieldY + 24) - (this.height - 12);
@@ -565,7 +588,7 @@ public class EditActionModalScreen extends Screen {
         drawGridOverlay(graphics);
 
         int panelWidth = 360;
-        int panelHeight = 265;
+        int panelHeight = 285;
         int left = (this.width - panelWidth) / 2;
         int top = (this.height - panelHeight) / 2;
 

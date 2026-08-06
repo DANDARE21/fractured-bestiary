@@ -35,6 +35,7 @@ public class FracturedUtils
     {
         event.enqueueWork(() -> {
             net.dandare21.fracturedutils.network.ModMessages.register();
+            net.dandare21.fracturedutils.config.ServerConfig.load();
         });
     }
 

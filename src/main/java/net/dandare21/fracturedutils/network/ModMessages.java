@@ -19,6 +19,7 @@ import net.dandare21.fracturedutils.network.packet.S2CSyncOperatorActionsPacket;
 import net.dandare21.fracturedutils.network.packet.C2SSubmitOperatorResumePacket;
 import net.dandare21.fracturedutils.network.packet.C2SStartSequencePacket;
 import net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket;
+import net.dandare21.fracturedutils.network.packet.S2CSyncPingsPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -146,11 +147,16 @@ public class ModMessages {
                 .encoder(S2CSyncSequenceTelemetryPacket::encode)
                 .consumerMainThread(S2CSyncSequenceTelemetryPacket::handle)
                 .add();
-
         net.messageBuilder(C2SStartSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
                 .decoder(C2SStartSequencePacket::new)
                 .encoder(C2SStartSequencePacket::encode)
                 .consumerMainThread(C2SStartSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(S2CSyncPingsPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CSyncPingsPacket::new)
+                .encoder(S2CSyncPingsPacket::encode)
+                .consumerMainThread(S2CSyncPingsPacket::handle)
                 .add();
     }
 

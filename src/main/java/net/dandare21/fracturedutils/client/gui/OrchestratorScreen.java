@@ -38,8 +38,10 @@ public class OrchestratorScreen extends Screen {
             .setPrettyPrinting()
             .create();
 
-    private final Map<String, String> serverSequenceFiles;
-    private final Map<String, String> clientSequenceFiles;
+    private final Map<String, String> savedServerSequenceFiles;
+    private final Map<String, String> workingServerSequenceFiles;
+    private final Map<String, String> savedClientSequenceFiles;
+    private final Map<String, String> workingClientSequenceFiles;
     private boolean isClientMode = false;
 
     private String currentFileName;
@@ -49,6 +51,7 @@ public class OrchestratorScreen extends Screen {
     private EditBox newFileEditBox;
 
     private static class SidebarRow {
+        String fileName;
         CyberpunkButton selectBtn;
         final List<CyberpunkButton> controlBtns = new ArrayList<>();
     }
@@ -71,8 +74,10 @@ public class OrchestratorScreen extends Screen {
 
     public OrchestratorScreen(Map<String, String> serverSequenceFiles) {
         super(Component.literal("Command Orchestrator"));
-        this.serverSequenceFiles = serverSequenceFiles != null ? new HashMap<>(serverSequenceFiles) : new HashMap<>();
-        this.clientSequenceFiles = loadLocalClientSequences();
+        this.savedServerSequenceFiles = serverSequenceFiles != null ? new HashMap<>(serverSequenceFiles) : new HashMap<>();
+        this.workingServerSequenceFiles = new HashMap<>(this.savedServerSequenceFiles);
+        this.savedClientSequenceFiles = loadLocalClientSequences();
+        this.workingClientSequenceFiles = new HashMap<>(this.savedClientSequenceFiles);
 
         // Default to client mode if singleplayer, otherwise server mode
         boolean isMultiplayer = Minecraft.getInstance().getCurrentServer() != null || !Minecraft.getInstance().isSingleplayer();
@@ -85,6 +90,7 @@ public class OrchestratorScreen extends Screen {
         } else {
             this.currentFileName = "new_sequence.json";
             activeMap.put(currentFileName, "[]");
+            getActiveSavedMap().put(currentFileName, "[]");
             this.currentActions = new ArrayList<>();
         }
     }
@@ -93,8 +99,16 @@ public class OrchestratorScreen extends Screen {
         return actionListWidget;
     }
 
+    private Map<String, String> getActiveSavedMap() {
+        return isClientMode ? savedClientSequenceFiles : savedServerSequenceFiles;
+    }
+
+    private Map<String, String> getActiveWorkingMap() {
+        return isClientMode ? workingClientSequenceFiles : workingServerSequenceFiles;
+    }
+
     private Map<String, String> getActiveSequenceMap() {
-        return isClientMode ? clientSequenceFiles : serverSequenceFiles;
+        return getActiveWorkingMap();
     }
 
     private Map<String, String> loadLocalClientSequences() {
@@ -136,7 +150,7 @@ public class OrchestratorScreen extends Screen {
     }
 
     private void loadCurrentFileActions() {
-        Map<String, String> map = getActiveSequenceMap();
+        Map<String, String> map = getActiveWorkingMap();
         String json = map.getOrDefault(currentFileName, "[]");
         try {
             List<OrchestratorAction> parsed = GSON.fromJson(json, new TypeToken<List<OrchestratorAction>>() {}.getType());
@@ -149,11 +163,41 @@ public class OrchestratorScreen extends Screen {
     private void syncCurrentActionsToJson() {
         if (currentFileName != null && !currentFileName.isEmpty()) {
             String json = GSON.toJson(currentActions);
-            getActiveSequenceMap().put(currentFileName, json);
-            if (isClientMode) {
-                saveLocalClientSequence(currentFileName, json);
+            getActiveWorkingMap().put(currentFileName, json);
+        }
+    }
+
+    public String getCurrentFileName() {
+        return currentFileName;
+    }
+
+    public boolean hasUnsavedChanges(String fileName) {
+        if (fileName == null || fileName.isEmpty()) return false;
+        String working = getActiveWorkingMap().get(fileName);
+        String saved = getActiveSavedMap().get(fileName);
+        if (working == null && saved == null) return false;
+        if (working == null || saved == null) return true;
+        return !working.equals(saved);
+    }
+
+    public boolean hasUnsavedChanges() {
+        return hasUnsavedChanges(currentFileName);
+    }
+
+    public static net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket.SequenceTelemetryData getActiveTelemetryForSequence(String fileName) {
+        if (fileName == null || fileName.isEmpty()) return null;
+        String cleanName = OrchestratorManager.getInstance().sanitizeFileName(fileName);
+        for (net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket.SequenceTelemetryData seq : ClientOpMonitorData.getTelemetryList()) {
+            String seqClean = OrchestratorManager.getInstance().sanitizeFileName(seq.getSequenceName());
+            if (seqClean.equalsIgnoreCase(cleanName) && !"FINISHED".equalsIgnoreCase(seq.getState())) {
+                return seq;
             }
         }
+        return null;
+    }
+
+    public net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket.SequenceTelemetryData getActiveTelemetry() {
+        return getActiveTelemetryForSequence(currentFileName);
     }
 
     @Override
@@ -231,10 +275,13 @@ public class OrchestratorScreen extends Screen {
         int reloadBtnX = folderBtnX - 22;
         this.addRenderableWidget(new CyberpunkButton(reloadBtnX, headerBtnY, 18, 16, Component.literal("🔄"), b -> {
             if (isClientMode) {
-                this.clientSequenceFiles.clear();
-                this.clientSequenceFiles.putAll(loadLocalClientSequences());
-                if (!clientSequenceFiles.containsKey(currentFileName)) {
-                    currentFileName = clientSequenceFiles.keySet().iterator().next();
+                Map<String, String> loaded = loadLocalClientSequences();
+                this.savedClientSequenceFiles.clear();
+                this.savedClientSequenceFiles.putAll(loaded);
+                this.workingClientSequenceFiles.clear();
+                this.workingClientSequenceFiles.putAll(loaded);
+                if (!workingClientSequenceFiles.containsKey(currentFileName)) {
+                    currentFileName = workingClientSequenceFiles.keySet().iterator().next();
                 }
                 loadCurrentFileActions();
                 this.saveFeedbackMessage = "✓ RELOADED LOCAL CLIENT SEQUENCES";
@@ -255,10 +302,13 @@ public class OrchestratorScreen extends Screen {
             this.addRenderableWidget(new CyberpunkButton(modeBtnX, headerBtnY, modeBtnW, 16, Component.literal(modeStr), b -> {
                 syncCurrentActionsToJson();
                 this.isClientMode = !this.isClientMode;
-                Map<String, String> map = getActiveSequenceMap();
+                Map<String, String> map = getActiveWorkingMap();
                 if (!map.containsKey(currentFileName)) {
                     currentFileName = map.isEmpty() ? "new_sequence.json" : map.keySet().iterator().next();
-                    if (map.isEmpty()) map.put(currentFileName, "[]");
+                    if (map.isEmpty()) {
+                        map.put(currentFileName, "[]");
+                        getActiveSavedMap().put(currentFileName, "[]");
+                    }
                 }
                 loadCurrentFileActions();
                 this.rebuildWidgets();
@@ -290,6 +340,7 @@ public class OrchestratorScreen extends Screen {
             int btnY = sidebarTop + i * 24;
 
             SidebarRow row = new SidebarRow();
+            row.fileName = fileName;
 
             // Select sequence button
             row.selectBtn = new CyberpunkButton(btnX, btnY, selectBtnW, fileBtnH, Component.literal(displayStr), b -> {
@@ -305,11 +356,16 @@ public class OrchestratorScreen extends Screen {
             if (isClientMode) {
                 CyberpunkButton uploadBtn = new CyberpunkButton(currentX, btnY, actionBtnW, fileBtnH, Component.literal("⬆"), b -> {
                     syncCurrentActionsToJson();
-                    String json = activeMap.get(fileName);
+                    String json = getActiveWorkingMap().get(fileName);
                     if (json != null) {
+                        getActiveSavedMap().put(fileName, json);
+                        if (isClientMode) {
+                            saveLocalClientSequence(fileName, json);
+                        }
                         ModMessages.sendToServer(new C2SSaveSequencePacket(fileName, json));
                         this.saveFeedbackMessage = "✓ UPLOADED '" + fileName + "' TO SERVER";
                         this.saveFeedbackTime = System.currentTimeMillis();
+                        this.rebuildWidgets();
                     }
                 }, 0xFF00FFCC, false, Component.literal("Upload sequence to server"));
                 row.controlBtns.add(uploadBtn);
@@ -321,14 +377,21 @@ public class OrchestratorScreen extends Screen {
                 if (this.minecraft != null) {
                     this.minecraft.setScreen(new RenameSequenceModalScreen(this, fileName, newName -> {
                         if (!newName.equalsIgnoreCase(fileName)) {
-                            String content = activeMap.remove(fileName);
-                            activeMap.put(newName, content != null ? content : "[]");
+                            String workingContent = getActiveWorkingMap().remove(fileName);
+                            String savedContent = getActiveSavedMap().remove(fileName);
+                            String contentToUse = workingContent != null ? workingContent : "[]";
+
+                            getActiveWorkingMap().put(newName, contentToUse);
+                            getActiveSavedMap().put(newName, savedContent != null ? savedContent : contentToUse);
+
                             if (isClientMode) {
                                 deleteLocalClientSequence(fileName);
-                                saveLocalClientSequence(newName, content != null ? content : "[]");
+                                saveLocalClientSequence(newName, contentToUse);
+                                getActiveSavedMap().put(newName, contentToUse);
                             } else {
                                 ModMessages.sendToServer(new C2SDeleteSequencePacket(fileName));
-                                ModMessages.sendToServer(new C2SSaveSequencePacket(newName, content != null ? content : "[]"));
+                                ModMessages.sendToServer(new C2SSaveSequencePacket(newName, contentToUse));
+                                getActiveSavedMap().put(newName, contentToUse);
                             }
                             if (currentFileName.equals(fileName)) {
                                 currentFileName = newName;
@@ -345,10 +408,14 @@ public class OrchestratorScreen extends Screen {
             CyberpunkButton deleteBtn = new CyberpunkButton(currentX, btnY, actionBtnW, fileBtnH, Component.literal("✖"), b -> {
                 if (this.minecraft != null) {
                     this.minecraft.setScreen(new ConfirmDeleteSequenceModalScreen(this, fileName, () -> {
-                        if (activeMap.size() <= 1) {
-                            activeMap.clear();
+                        Map<String, String> workingMap = getActiveWorkingMap();
+                        Map<String, String> savedMap = getActiveSavedMap();
+                        if (workingMap.size() <= 1) {
+                            workingMap.clear();
+                            savedMap.clear();
                             String defaultFile = "new_sequence.json";
-                            activeMap.put(defaultFile, "[]");
+                            workingMap.put(defaultFile, "[]");
+                            savedMap.put(defaultFile, "[]");
                             currentFileName = defaultFile;
                             currentActions = new ArrayList<>();
                             if (isClientMode) {
@@ -359,14 +426,15 @@ public class OrchestratorScreen extends Screen {
                                 ModMessages.sendToServer(new C2SSaveSequencePacket(defaultFile, "[]"));
                             }
                         } else {
-                            activeMap.remove(fileName);
+                            workingMap.remove(fileName);
+                            savedMap.remove(fileName);
                             if (isClientMode) {
                                 deleteLocalClientSequence(fileName);
                             } else {
                                 ModMessages.sendToServer(new C2SDeleteSequencePacket(fileName));
                             }
                             if (currentFileName.equals(fileName)) {
-                                currentFileName = activeMap.keySet().iterator().next();
+                                currentFileName = workingMap.keySet().iterator().next();
                                 loadCurrentFileActions();
                             }
                         }
@@ -396,11 +464,14 @@ public class OrchestratorScreen extends Screen {
         this.addRenderableWidget(new CyberpunkButton(leftPanelLeft + 10, newFileY + 28, leftPanelWidth - 20, 24, Component.literal("+ NEW SEQUENCE"), b -> {
             String name = newFileEditBox.getValue().trim();
             if (!name.endsWith(".json")) name += ".json";
-            if (!name.isEmpty() && !activeMap.containsKey(name)) {
+            Map<String, String> workingMap = getActiveWorkingMap();
+            Map<String, String> savedMap = getActiveSavedMap();
+            if (!name.isEmpty() && !workingMap.containsKey(name)) {
                 syncCurrentActionsToJson();
                 this.currentFileName = name;
                 this.currentActions = new ArrayList<>();
-                activeMap.put(name, "[]");
+                workingMap.put(name, "[]");
+                savedMap.put(name, "[]");
                 if (isClientMode) {
                     saveLocalClientSequence(name, "[]");
                 }
@@ -427,10 +498,13 @@ public class OrchestratorScreen extends Screen {
         }, 0xFF55FF55, false, Component.literal("Save and execute sequence from start")));
 
         // [💾 SAVE SEQUENCE] Button
-        this.addRenderableWidget(new CyberpunkButton(rightPanelLeft + rightPanelWidth - 10 - 110, bottomY, 110, 26, Component.literal("💾 SAVE SEQUENCE"), b -> {
+        String saveLabel = hasUnsavedChanges() ? "💾 SAVE SEQUENCE *" : "💾 SAVE SEQUENCE";
+        int saveColor = hasUnsavedChanges() ? 0xFFFFAA00 : CYAN_MAIN;
+        this.addRenderableWidget(new CyberpunkButton(rightPanelLeft + rightPanelWidth - 10 - 110, bottomY, 110, 26, Component.literal(saveLabel), b -> {
             syncCurrentActionsToJson();
-            String json = activeMap.get(currentFileName);
+            String json = getActiveWorkingMap().get(currentFileName);
             if (currentFileName != null && json != null) {
+                getActiveSavedMap().put(currentFileName, json);
                 if (isClientMode) {
                     saveLocalClientSequence(currentFileName, json);
                     this.saveFeedbackMessage = "✓ SAVED '" + currentFileName + "' LOCALLY";
@@ -442,8 +516,9 @@ public class OrchestratorScreen extends Screen {
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.get(), 1.0f));
                 }
+                this.rebuildWidgets();
             }
-        }, CYAN_MAIN, false, Component.literal("Save current sequence")));
+        }, saveColor, false, Component.literal("Save current sequence")));
     }
 
     private double getMaxSidebarScroll() {
@@ -468,6 +543,30 @@ public class OrchestratorScreen extends Screen {
                 cb.setY(btnY);
                 cb.visible = visible;
             }
+
+            if (row.fileName != null) {
+                String fileName = row.fileName;
+                boolean isSelected = fileName.equals(currentFileName);
+                boolean isExecuting = getActiveTelemetryForSequence(fileName) != null;
+                boolean isUnsaved = hasUnsavedChanges(fileName);
+
+                String statusPrefix = "";
+                if (isExecuting) {
+                    statusPrefix = "▶ ";
+                } else if (isUnsaved) {
+                    statusPrefix = "* ";
+                }
+
+                String prefix = (isSelected ? "► " : "") + statusPrefix;
+                int maxLen = (isExecuting || isUnsaved) ? 8 : 10;
+                String displayStr = prefix + (fileName.length() > maxLen ? fileName.substring(0, maxLen) + ".." : fileName);
+                row.selectBtn.setMessage(Component.literal(displayStr));
+
+                String tooltipStr = "Select sequence: " + fileName;
+                if (isExecuting) tooltipStr += " [RUNNING]";
+                if (isUnsaved) tooltipStr += " [UNSAVED CHANGES]";
+                row.selectBtn.setTooltip(Tooltip.create(Component.literal(tooltipStr)));
+            }
         }
     }
 
@@ -490,8 +589,10 @@ public class OrchestratorScreen extends Screen {
             return;
         }
         syncCurrentActionsToJson();
-        Map<String, String> activeMap = getActiveSequenceMap();
-        String json = activeMap.get(currentFileName);
+        String json = getActiveWorkingMap().get(currentFileName);
+        if (json != null) {
+            getActiveSavedMap().put(currentFileName, json);
+        }
 
         if (!isClientMode) {
             if (json != null) {
@@ -515,7 +616,8 @@ public class OrchestratorScreen extends Screen {
             }
         }
         if (this.minecraft != null) {
-            this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.get(), 1.0f));
+            this.onClose();
         }
     }
 
@@ -663,12 +765,24 @@ public class OrchestratorScreen extends Screen {
 
         // Active Sequence File Badge in Header
         String modeTag = isClientMode ? "[CLIENT] " : "[SERVER] ";
+        boolean isUnsaved = hasUnsavedChanges();
+        net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket.SequenceTelemetryData telemetry = getActiveTelemetry();
+        boolean isRunning = telemetry != null;
+
         String badgeText = "FILE: " + modeTag + (currentFileName != null ? currentFileName : "NONE");
+        if (isUnsaved) {
+            badgeText += " * [UNSAVED]";
+        }
+        if (isRunning) {
+            badgeText += " [▶ " + telemetry.getState().toUpperCase() + "]";
+        }
+
+        int badgeColor = isRunning ? 0xFF00FF55 : (isUnsaved ? 0xFFFFAA00 : CYAN_MAIN);
         int badgeWidth = this.font.width(badgeText) + 16;
         int badgeX = (this.width - badgeWidth) / 2;
 
-        drawBorderBox(guiGraphics, badgeX, 6, badgeWidth, 24, CYAN_MAIN, 0xFF050B10);
-        guiGraphics.drawCenteredString(this.font, Component.literal(badgeText).withStyle(ChatFormatting.BOLD), badgeX + (badgeWidth / 2), 14, CYAN_MAIN);
+        drawBorderBox(guiGraphics, badgeX, 6, badgeWidth, 24, badgeColor, 0xFF050B10);
+        guiGraphics.drawCenteredString(this.font, Component.literal(badgeText).withStyle(ChatFormatting.BOLD), badgeX + (badgeWidth / 2), 14, badgeColor);
     }
 
     private void drawBorderBox(GuiGraphics guiGraphics, int x, int y, int w, int h, int borderColor, int fillColor) {
@@ -681,6 +795,8 @@ public class OrchestratorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        updateSidebarButtons();
+
         // 1. Deep Black Background
         guiGraphics.fill(0, 0, this.width, this.height, CYAN_BG);
 
@@ -738,8 +854,19 @@ public class OrchestratorScreen extends Screen {
         // 8. Render Right Panel Container & Header
         drawBorderBox(guiGraphics, rightPanelLeft, mainTop, rightPanelWidth, mainHeight, CARD_BORDER, 0x7708121B);
 
+        boolean isUnsaved = hasUnsavedChanges();
+        net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket.SequenceTelemetryData telemetry = getActiveTelemetry();
+        boolean isRunning = telemetry != null;
+
         String seqTitle = "ACTION SEQUENCE: " + currentFileName.toUpperCase();
-        guiGraphics.drawString(this.font, Component.literal(seqTitle).withStyle(ChatFormatting.BOLD), rightPanelLeft + 12, mainTop + 12, CYAN_MAIN, false);
+        if (isUnsaved) {
+            seqTitle += " * [UNSAVED CHANGES]";
+        }
+        if (isRunning) {
+            seqTitle += " [▶ EXECUTING - " + telemetry.getState().toUpperCase() + "]";
+        }
+        int titleColor = isRunning ? 0xFF00FF55 : (isUnsaved ? 0xFFFFAA00 : CYAN_MAIN);
+        guiGraphics.drawString(this.font, Component.literal(seqTitle).withStyle(ChatFormatting.BOLD), rightPanelLeft + 12, mainTop + 12, titleColor, false);
         guiGraphics.fill(rightPanelLeft + 10, mainTop + 26, rightPanelLeft + rightPanelWidth - 10, mainTop + 27, 0x4400E5FF);
 
         // Render Save Feedback Message Toast if active

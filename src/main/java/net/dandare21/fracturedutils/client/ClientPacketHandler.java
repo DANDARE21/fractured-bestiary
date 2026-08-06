@@ -59,4 +59,8 @@ public class ClientPacketHandler {
                     return null;
                 });
     }
+
+    public static void handleSyncPings(List<net.dandare21.fracturedutils.ping.HudPing> pings) {
+        ClientPingData.setPings(pings);
+    }
 }

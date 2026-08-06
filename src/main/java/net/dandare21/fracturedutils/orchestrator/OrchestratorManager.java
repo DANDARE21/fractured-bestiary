@@ -193,8 +193,9 @@ public class OrchestratorManager {
                 return "trigger:" + wua.getTriggerId();
             } else if (mode.equals("proximity") || mode.equals("marker") || mode.equals("player_proximity") || mode.equals("area")) {
                 String modeTag = wua.isRequireAllPlayers() ? "ALL" : "ANY";
-                String visTag = wua.isOpsOnlyVisibility() ? "Ops" : "All";
-                return String.format(Locale.ROOT, "proximity:%.1f,%.1f,%.1f r=%.1f (%s, %s, area=%b)", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), modeTag, visTag, wua.isShowRadiusArea());
+                String markerVisTag = wua.isOpsOnlyVisibility() ? "Marker:Ops" : "Marker:All";
+                String areaVisTag = wua.isAreaOpsOnlyVisibility() ? "Area:Ops" : "Area:All";
+                return String.format(Locale.ROOT, "proximity:%.1f,%.1f,%.1f r=%.1f (%s, %s, %s, area=%b)", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), modeTag, markerVisTag, areaVisTag, wua.isShowRadiusArea());
             } else {
                 return wua.getWaitType();
             }

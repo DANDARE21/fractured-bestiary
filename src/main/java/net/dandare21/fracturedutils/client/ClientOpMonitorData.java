@@ -15,6 +15,10 @@ import java.util.Map;
 public class ClientOpMonitorData {
     private static List<S2CSyncSequenceTelemetryPacket.SequenceTelemetryData> telemetryList = new ArrayList<>();
 
+    public static List<S2CSyncSequenceTelemetryPacket.SequenceTelemetryData> getTelemetryList() {
+        return telemetryList;
+    }
+
     public static boolean isEnabled() {
         return ClientConfig.isOpMonitorEnabled();
     }

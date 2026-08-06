@@ -221,17 +221,43 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 isInvalidCommand = !CommandAction.isValidCommand(Minecraft.getInstance(), ca.getRun());
             }
 
-            int accentColor = isBeingDragged ? 0x6600E5FF : (isInvalidCommand ? 0xFFFF3355 : getActionColor(action.getType()));
-            int bg = isBeingDragged
-                    ? 0x4408121B
-                    : (isInvalidCommand
-                    ? (isHovered ? 0xEE300A10 : 0xBB1B080C)
-                    : (isHovered ? 0xEE0A2030 : 0xBB08121B));
-            int borderColor = isBeingDragged
-                    ? 0x5500E5FF
-                    : (isInvalidCommand
-                    ? (isHovered ? 0xFFFF5555 : 0xFFFF3355)
-                    : (isHovered ? 0xFF00E5FF : 0xAA00E5FF));
+            net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacket.SequenceTelemetryData telemetry = screen.getActiveTelemetry();
+            boolean isExecuted = false;
+            boolean isCurrentAction = false;
+            if (telemetry != null) {
+                int curIdx = telemetry.getCurrentIndex();
+                if (index < curIdx) {
+                    isExecuted = true;
+                } else if (index == curIdx) {
+                    isCurrentAction = true;
+                }
+            }
+
+            int accentColor;
+            int bg;
+            int borderColor;
+
+            if (isBeingDragged) {
+                accentColor = 0x6600E5FF;
+                bg = 0x4408121B;
+                borderColor = 0x5500E5FF;
+            } else if (isCurrentAction) {
+                accentColor = 0xFF00FF55;
+                bg = isHovered ? 0xEE0D4026 : 0xDD0A2E1C;
+                borderColor = 0xFF00FF55;
+            } else if (isExecuted) {
+                accentColor = 0xFF33CC66;
+                bg = isHovered ? 0xEE0A281A : 0xBB081C12;
+                borderColor = 0xAA33CC66;
+            } else if (isInvalidCommand) {
+                accentColor = 0xFFFF3355;
+                bg = isHovered ? 0xEE300A10 : 0xBB1B080C;
+                borderColor = isHovered ? 0xFFFF5555 : 0xFFFF3355;
+            } else {
+                accentColor = getActionColor(action.getType());
+                bg = isHovered ? 0xEE0A2030 : 0xBB08121B;
+                borderColor = isHovered ? 0xFF00E5FF : 0xAA00E5FF;
+            }
 
             // Render Card Fill & Border
             graphics.fill(left, top, left + width, top + height - 2, bg);
@@ -248,7 +274,11 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
 
             // Header Text (Action Index + Type Name)
             String typeText = "[" + (index + 1) + "] " + action.getType().toUpperCase();
-            if (isInvalidCommand) {
+            if (isCurrentAction) {
+                typeText += "  ▶ CURRENT ACTION";
+            } else if (isExecuted) {
+                typeText += "  ✓ EXECUTED";
+            } else if (isInvalidCommand) {
                 typeText += " ⚠ INVALID SYNTAX";
             }
             graphics.drawString(font, Component.literal(typeText), left + 22, top + 4, accentColor, false);
@@ -365,9 +395,9 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                     return "Operator Action: " + (lbl.isEmpty() ? wua.getTriggerId() : lbl);
                 } else if (mode.equals("proximity") || mode.equals("marker") || mode.equals("player_proximity") || mode.equals("area")) {
                     String reqText = wua.isRequireAllPlayers() ? "ALL players" : "ANY player";
-                    String visText = wua.isOpsOnlyVisibility() ? "Ops Only" : "Visible to All";
-                    String areaText = wua.isShowRadiusArea() ? "Area On" : "Area Off";
-                    return String.format(java.util.Locale.ROOT, "Marker (%.1f, %.1f, %.1f) r=%.1fm [%s, %s, %s]", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), reqText, visText, areaText);
+                    String markerVisText = wua.isOpsOnlyVisibility() ? "Marker: Ops" : "Marker: All";
+                    String areaText = wua.isShowRadiusArea() ? ("Area On (" + (wua.isAreaOpsOnlyVisibility() ? "Ops" : "All") + ")") : "Area Off";
+                    return String.format(java.util.Locale.ROOT, "Marker (%.1f, %.1f, %.1f) r=%.1fm [%s, %s, %s]", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), reqText, markerVisText, areaText);
                 } else if (mode.equals("video") || mode.equals("video_end") || mode.equals("cutscene") || mode.equals("cinematic")) {
                     return "Wait for active video to end";
                 } else if (mode.equals("waiting_room") || mode.equals("waiting_room_end") || mode.equals("waitingroom")) {

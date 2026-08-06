@@ -9,6 +9,8 @@ import net.dandare21.fracturedutils.cutscene.ServerCutsceneManager;
 import net.dandare21.fracturedutils.maintenance.MaintenanceManager;
 import net.dandare21.fracturedutils.orchestrator.OrchestratorManager;
 import net.dandare21.fracturedutils.waitingroom.WaitingRoomManager;
+import net.dandare21.fracturedutils.config.ServerConfig;
+import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
@@ -27,6 +29,7 @@ public class ServerEventHandler {
         PlayCinematicCommand.register(event.getDispatcher());
         DownloadCinematicCommand.register(event.getDispatcher());
         net.dandare21.fracturedutils.command.OrchestratorCommand.register(event.getDispatcher());
+        net.dandare21.fracturedutils.command.PingCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent
@@ -38,9 +41,33 @@ public class ServerEventHandler {
     }
 
     @SubscribeEvent
+    public static void onPlayerClone(PlayerEvent.Clone event) {
+        if (event.isWasDeath() && ServerConfig.isKeepInventoryNoXpEnabled()) {
+            if (event.getEntity() instanceof ServerPlayer newPlayer) {
+                newPlayer.experienceLevel = 0;
+                newPlayer.totalExperience = 0;
+                newPlayer.experienceProgress = 0.0F;
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        if (ServerConfig.isKeepInventoryNoXpEnabled() && event.getEntity() instanceof ServerPlayer player) {
+            player.experienceLevel = 0;
+            player.totalExperience = 0;
+            player.experienceProgress = 0.0F;
+            if (player.connection != null) {
+                player.connection.send(new ClientboundSetExperiencePacket(0.0F, 0, 0));
+            }
+        }
+    }
+
+    @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             MaintenanceManager.getInstance().checkAndKickOnJoin(player);
+            net.dandare21.fracturedutils.ping.PingManager.getInstance().syncToPlayer(player);
 
             WaitingRoomManager mgr = WaitingRoomManager.getInstance();
             if (mgr.isActive()) {
