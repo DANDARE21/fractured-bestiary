@@ -31,6 +31,13 @@ public class ClientEventHandler {
     public static void onPlaySound(PlaySoundEvent event) {
         if (ClientCutsceneHandler.getInstance().isCinematicPlaying()) {
             event.setSound(null);
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen) {
+            if (event.getSound() != null && event.getSound().getSource() != net.minecraft.sounds.SoundSource.MASTER) {
+                event.setSound(null);
+            }
         }
     }
 
@@ -51,6 +58,12 @@ public class ClientEventHandler {
             holdTicks = 0;
             ticksSinceLastSound = 0;
             return;
+        }
+
+        if (ClientDownedData.isDowned()) {
+            if (!(mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) && !(mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen)) {
+                mc.setScreen(new net.dandare21.fracturedutils.client.gui.DownedSpectateScreen());
+            }
         }
 
         boolean isOp = mc.player.hasPermissions(2);
@@ -96,128 +109,202 @@ public class ClientEventHandler {
     }
 
     @SubscribeEvent
+    public static void onRenderGuiOverlayPre(net.minecraftforge.client.event.RenderGuiOverlayEvent.Pre event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (ClientDownedData.isDowned() || mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen || mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRenderHand(net.minecraftforge.client.event.RenderHandEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (ClientDownedData.isDowned() || mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen || mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
     public static void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
         ClientCutsceneHandler.getInstance().renderOverlay(event);
 
         if (event.getOverlay().id().equals(VanillaGuiOverlay.HOTBAR.id())) {
-            // Render OP Active Sequence Monitor HUD Overlay
-            ClientOpMonitorData.renderHudOverlay(event.getGuiGraphics());
-
-            if (!ClientWaitingRoomData.isActive())
-                return;
-
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof WaitingRoomScreen)
-                return;
-
             GuiGraphics guiGraphics = event.getGuiGraphics();
-            int screenWidth = mc.getWindow().getGuiScaledWidth();
 
-            int totalConnected = 0;
-            if (mc.getConnection() != null && mc.getConnection().getOnlinePlayers() != null) {
-                totalConnected = mc.getConnection().getOnlinePlayers().size();
+            // Render OP Active Sequence Monitor HUD Overlay
+            ClientOpMonitorData.renderHudOverlay(guiGraphics);
+
+            // Render Downed & Revive HUD Overlay
+            if (ClientDownedData.isDowned() && mc.player != null) {
+                int screenWidth = mc.getWindow().getGuiScaledWidth();
+                int screenHeight = mc.getWindow().getGuiScaledHeight();
+
+                int boxW = 240;
+                int boxH = 45;
+                int boxX = (screenWidth - boxW) / 2;
+                int boxY = screenHeight - 80;
+
+                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xEE1A0505);
+                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + 1, 0xFFFF2222);
+                guiGraphics.fill(boxX, boxY + boxH - 1, boxX + boxW, boxY + boxH, 0xFFFF2222);
+                guiGraphics.fill(boxX, boxY, boxX + 1, boxY + boxH, 0xFFFF2222);
+                guiGraphics.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + boxH, 0xFFFF2222);
+
+                guiGraphics.drawCenteredString(mc.font, "⚠️ YOU ARE DOWNED!", screenWidth / 2, boxY + 8, 0xFFFF3333);
+                guiGraphics.drawCenteredString(mc.font, "Wait for a teammate to stand nearby & hold RIGHT CLICK to revive", screenWidth / 2, boxY + 22, 0xFFCCCCCC);
+
+                float prog = ClientDownedData.getReviveProgress();
+                if (prog > 0.0f) {
+                    int pW = (int) ((boxW - 16) * prog);
+                    guiGraphics.fill(boxX + 8, boxY + boxH - 8, boxX + 8 + pW, boxY + boxH - 4, 0xFF00FF55);
+                }
+            } else if (ClientDownedData.isRevivingOther() && mc.player != null) {
+                int screenWidth = mc.getWindow().getGuiScaledWidth();
+                int screenHeight = mc.getWindow().getGuiScaledHeight();
+
+                int boxW = 200;
+                int boxH = 35;
+                int boxX = (screenWidth - boxW) / 2;
+                int boxY = screenHeight - 75;
+
+                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xEE051A0B);
+                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + 1, 0xFF00FF55);
+                guiGraphics.fill(boxX, boxY + boxH - 1, boxX + boxW, boxY + boxH, 0xFF00FF55);
+                guiGraphics.fill(boxX, boxY, boxX + 1, boxY + boxH, 0xFF00FF55);
+                guiGraphics.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + boxH, 0xFF00FF55);
+
+                float prog = ClientDownedData.getReviveProgress();
+                guiGraphics.drawCenteredString(mc.font, "✨ REVIVING TEAMMATE (" + (int)(prog * 100) + "%)", screenWidth / 2, boxY + 8, 0xFF00FF55);
+
+                int pW = (int) ((boxW - 16) * prog);
+                guiGraphics.fill(boxX + 8, boxY + boxH - 8, boxX + 8 + pW, boxY + boxH - 4, 0xFF00FF55);
             }
 
-            boolean isOp = mc.player != null && mc.player.hasPermissions(2);
-            boolean isCountdown = ClientWaitingRoomData.isCountingDown();
-            boolean isEveryoneReady = ClientWaitingRoomData.isEveryoneReady(totalConnected);
+            // Render Waiting Room HUD Overlay
+            if (ClientWaitingRoomData.isActive() && !(mc.screen instanceof WaitingRoomScreen)) {
+                int screenWidth = mc.getWindow().getGuiScaledWidth();
 
-            int borderColor = isCountdown ? 0xFFFF3355 : (isEveryoneReady ? 0xFF00FF55 : 0xFF00E5FF);
-            int innerColor = isCountdown ? 0x44FF3355 : (isEveryoneReady ? 0x4400FF55 : 0x4400E5FF);
-            int titleColor = isCountdown ? 0xFFFF3355 : (isEveryoneReady ? 0xFF00FF55 : 0xFF00E5FF);
-            net.minecraft.ChatFormatting titleStyle = isCountdown ? net.minecraft.ChatFormatting.RED
-                    : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
-            net.minecraft.ChatFormatting statsStyle = isCountdown ? net.minecraft.ChatFormatting.RED
-                    : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.YELLOW);
-            net.minecraft.ChatFormatting promptStyle = isCountdown ? net.minecraft.ChatFormatting.RED
-                    : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
+                int totalConnected = 0;
+                if (mc.getConnection() != null && mc.getConnection().getOnlinePlayers() != null) {
+                    totalConnected = mc.getConnection().getOnlinePlayers().size();
+                }
 
-            String titleStr = ClientWaitingRoomData.getRoomTitle().toUpperCase();
-            Component titleText = Component.literal(titleStr).withStyle(net.minecraft.ChatFormatting.BOLD, titleStyle);
+                boolean isOp = mc.player != null && mc.player.hasPermissions(2);
+                boolean isCountdown = ClientWaitingRoomData.isCountingDown();
+                boolean isEveryoneReady = ClientWaitingRoomData.isEveryoneReady(totalConnected);
 
-            int joinedCount = ClientWaitingRoomData.getPlayerUUIDs().size();
+                int borderColor = isCountdown ? 0xFFFF3355 : (isEveryoneReady ? 0xFF00FF55 : 0xFF00E5FF);
+                int innerColor = isCountdown ? 0x44FF3355 : (isEveryoneReady ? 0x4400FF55 : 0x4400E5FF);
+                int titleColor = isCountdown ? 0xFFFF3355 : (isEveryoneReady ? 0xFF00FF55 : 0xFF00E5FF);
+                net.minecraft.ChatFormatting titleStyle = isCountdown ? net.minecraft.ChatFormatting.RED
+                        : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
+                net.minecraft.ChatFormatting statsStyle = isCountdown ? net.minecraft.ChatFormatting.RED
+                        : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.YELLOW);
+                net.minecraft.ChatFormatting promptStyle = isCountdown ? net.minecraft.ChatFormatting.RED
+                        : (isEveryoneReady ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA);
 
-            long remaining = isCountdown ? ClientWaitingRoomData.getCountdownRemainingSeconds() : 0;
-            String timeStr = isCountdown
-                    ? Component
-                            .translatable("gui.fracturedutils.waiting_room.starting_in", remaining / 60, remaining % 60)
-                            .getString()
-                    : String.format("⏱ %02d:%02d", ClientWaitingRoomData.getElapsedSeconds() / 60,
-                            ClientWaitingRoomData.getElapsedSeconds() % 60);
+                String titleStr = ClientWaitingRoomData.getRoomTitle().toUpperCase();
+                Component titleText = Component.literal(titleStr).withStyle(net.minecraft.ChatFormatting.BOLD, titleStyle);
 
-            Component statsText = Component
-                    .translatable("gui.fracturedutils.waiting_room.hud_players", joinedCount, totalConnected)
-                    .append(Component.literal("   |   " + timeStr))
-                    .withStyle(statsStyle, net.minecraft.ChatFormatting.BOLD);
+                int joinedCount = ClientWaitingRoomData.getPlayerUUIDs().size();
 
-            String keyName = ModKeyBindings.WAITING_ROOM_KEY.getTranslatedKeyMessage().getString().toUpperCase();
-            Component promptPrefix = Component.translatable(
-                    isOp ? "gui.fracturedutils.waiting_room.press" : "gui.fracturedutils.waiting_room.hold");
-            Component enterPrompt = Component.translatable("gui.fracturedutils.waiting_room.enter_prompt");
+                long remaining = isCountdown ? ClientWaitingRoomData.getCountdownRemainingSeconds() : 0;
+                String timeStr = isCountdown
+                        ? Component
+                                .translatable("gui.fracturedutils.waiting_room.starting_in", remaining / 60, remaining % 60)
+                                .getString()
+                        : String.format("⏱ %02d:%02d", ClientWaitingRoomData.getElapsedSeconds() / 60,
+                                ClientWaitingRoomData.getElapsedSeconds() % 60);
 
-            Component promptText = Component.literal("[").withStyle(promptStyle, net.minecraft.ChatFormatting.BOLD)
-                    .append(promptPrefix.getString() + " ")
-                    .append(Component.literal(keyName).withStyle(net.minecraft.ChatFormatting.WHITE,
-                            net.minecraft.ChatFormatting.BOLD))
-                    .append(enterPrompt)
-                    .withStyle(promptStyle, net.minecraft.ChatFormatting.BOLD);
+                Component statsText = Component
+                        .translatable("gui.fracturedutils.waiting_room.hud_players", joinedCount, totalConnected)
+                        .append(Component.literal("   |   " + timeStr))
+                        .withStyle(statsStyle, net.minecraft.ChatFormatting.BOLD);
 
-            int w1 = mc.font.width(titleText);
-            int w2 = mc.font.width(statsText);
-            int w3 = mc.font.width(promptText);
-            int maxW = Math.max(w1, Math.max(w2, w3));
+                String keyName = ModKeyBindings.WAITING_ROOM_KEY.getTranslatedKeyMessage().getString().toUpperCase();
+                Component promptPrefix = Component.translatable(
+                        isOp ? "gui.fracturedutils.waiting_room.press" : "gui.fracturedutils.waiting_room.hold");
+                Component enterPrompt = Component.translatable("gui.fracturedutils.waiting_room.enter_prompt");
 
-            int cardW = maxW + 32;
-            int cardH = 48;
-            int x = (screenWidth - cardW) / 2;
-            int y = 10;
+                Component promptText = Component.literal("[").withStyle(promptStyle, net.minecraft.ChatFormatting.BOLD)
+                        .append(promptPrefix.getString() + " ")
+                        .append(Component.literal(keyName).withStyle(net.minecraft.ChatFormatting.WHITE,
+                                net.minecraft.ChatFormatting.BOLD))
+                        .append(enterPrompt)
+                        .withStyle(promptStyle, net.minecraft.ChatFormatting.BOLD);
 
-            int fillColor = 0xEE08121B;
+                int w1 = mc.font.width(titleText);
+                int w2 = mc.font.width(statsText);
+                int w3 = mc.font.width(promptText);
+                int maxW = Math.max(w1, Math.max(w2, w3));
 
-            guiGraphics.fill(x, y, x + cardW, y + cardH, fillColor);
-            guiGraphics.fill(x, y, x + cardW, y + 1, borderColor);
-            guiGraphics.fill(x, y + cardH - 1, x + cardW, y + cardH, borderColor);
-            guiGraphics.fill(x, y, x + 1, y + cardH, borderColor);
-            guiGraphics.fill(x + cardW - 1, y, x + cardW, y + cardH, borderColor);
+                int cardW = maxW + 32;
+                int cardH = 48;
+                int x = (screenWidth - cardW) / 2;
+                int y = 10;
 
-            guiGraphics.fill(x + 2, y + 2, x + cardW - 2, y + 3, innerColor);
-            guiGraphics.fill(x + 2, y + cardH - 3, x + cardW - 2, y + cardH - 2, innerColor);
+                int fillColor = 0xEE08121B;
 
-            guiGraphics.fill(x, y, x + 5, y + 2, borderColor);
-            guiGraphics.fill(x, y, x + 2, y + 5, borderColor);
-            guiGraphics.fill(x + cardW - 5, y, x + cardW, y + 2, borderColor);
-            guiGraphics.fill(x + cardW - 2, y, x + cardW, y + 5, borderColor);
-            guiGraphics.fill(x, y + cardH - 2, x + 5, y + cardH, borderColor);
-            guiGraphics.fill(x, y + cardH - 5, x + 2, y + cardH, borderColor);
-            guiGraphics.fill(x + cardW - 5, y + cardH - 2, x + cardW, y + cardH, borderColor);
-            guiGraphics.fill(x + cardW - 2, y + cardH - 5, x + cardW, y + cardH, borderColor);
+                guiGraphics.fill(x, y, x + cardW, y + cardH, fillColor);
+                guiGraphics.fill(x, y, x + cardW, y + 1, borderColor);
+                guiGraphics.fill(x, y + cardH - 1, x + cardW, y + cardH, borderColor);
+                guiGraphics.fill(x, y, x + 1, y + cardH, borderColor);
+                guiGraphics.fill(x + cardW - 1, y, x + cardW, y + cardH, borderColor);
 
-            guiGraphics.drawCenteredString(mc.font, titleText, x + (cardW / 2), y + 6, titleColor);
-            guiGraphics.drawCenteredString(mc.font, statsText, x + (cardW / 2), y + 19, 0xFFFFFFFF);
-            guiGraphics.drawCenteredString(mc.font, promptText, x + (cardW / 2), y + 32, 0xFFFFFFFF);
+                guiGraphics.fill(x + 2, y + 2, x + cardW - 2, y + 3, innerColor);
+                guiGraphics.fill(x + 2, y + cardH - 3, x + cardW - 2, y + cardH - 2, innerColor);
 
-            float partialTick = event.getPartialTick();
-            if (holdTicks > 0) {
-                float rawProgress = Math.min(1.0f,
-                        (holdTicks + (ModKeyBindings.WAITING_ROOM_KEY.isDown() ? partialTick : -partialTick))
-                                / MAX_HOLD_TICKS);
-                smoothHoldProgress = smoothHoldProgress + (rawProgress - smoothHoldProgress) * 0.4f;
-            } else {
-                smoothHoldProgress = smoothHoldProgress * 0.6f;
+                guiGraphics.fill(x, y, x + 5, y + 2, borderColor);
+                guiGraphics.fill(x, y, x + 2, y + 5, borderColor);
+                guiGraphics.fill(x + cardW - 5, y, x + cardW, y + 2, borderColor);
+                guiGraphics.fill(x + cardW - 2, y, x + cardW, y + 5, borderColor);
+                guiGraphics.fill(x, y + cardH - 2, x + 5, y + cardH, borderColor);
+                guiGraphics.fill(x, y + cardH - 5, x + 2, y + cardH, borderColor);
+                guiGraphics.fill(x + cardW - 5, y + cardH - 2, x + cardW, y + cardH, borderColor);
+                guiGraphics.fill(x + cardW - 2, y + cardH - 5, x + cardW, y + cardH, borderColor);
+
+                guiGraphics.drawCenteredString(mc.font, titleText, x + (cardW / 2), y + 6, titleColor);
+                guiGraphics.drawCenteredString(mc.font, statsText, x + (cardW / 2), y + 19, 0xFFFFFFFF);
+                guiGraphics.drawCenteredString(mc.font, promptText, x + (cardW / 2), y + 32, 0xFFFFFFFF);
+
+                float partialTick = event.getPartialTick();
+                if (holdTicks > 0) {
+                    float rawProgress = Math.min(1.0f,
+                            (holdTicks + (ModKeyBindings.WAITING_ROOM_KEY.isDown() ? partialTick : -partialTick))
+                                    / MAX_HOLD_TICKS);
+                    smoothHoldProgress = smoothHoldProgress + (rawProgress - smoothHoldProgress) * 0.4f;
+                } else {
+                    smoothHoldProgress = smoothHoldProgress * 0.6f;
+                }
+
+                int barX = x + 4;
+                int barY = y + cardH - 3;
+                int barWidth = cardW - 8;
+                int barHeight = 2;
+
+                guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0x55050B10);
+
+                int filledWidth = (int) (barWidth * Math.max(0.0f, Math.min(1.0f, smoothHoldProgress)));
+                if (filledWidth > 0) {
+                    int progressColor = smoothHoldProgress >= 0.95f ? 0xFF00FF55 : borderColor;
+                    guiGraphics.fill(barX, barY, barX + filledWidth, barY + barHeight, progressColor);
+                }
             }
+        }
+    }
 
-            int barX = x + 4;
-            int barY = y + cardH - 3;
-            int barWidth = cardW - 8;
-            int barHeight = 2;
+    @SubscribeEvent
+    public static void onInteraction(net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
+        if (ClientDownedData.isDowned()) {
+            event.setCanceled(true);
+        }
+    }
 
-            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0x55050B10);
-
-            int filledWidth = (int) (barWidth * Math.max(0.0f, Math.min(1.0f, smoothHoldProgress)));
-            if (filledWidth > 0) {
-                int progressColor = smoothHoldProgress >= 0.95f ? 0xFF00FF55 : borderColor;
-                guiGraphics.fill(barX, barY, barX + filledWidth, barY + barHeight, progressColor);
-            }
+    @SubscribeEvent
+    public static void onComputeCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+        if (net.dandare21.fracturedutils.client.camera.CustomCameraManager.isActive()) {
+            net.dandare21.fracturedutils.client.camera.CameraUtils.applyCameraOverride(event.getCamera(), event);
         }
     }
 

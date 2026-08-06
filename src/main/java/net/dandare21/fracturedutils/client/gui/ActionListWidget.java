@@ -373,6 +373,7 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
 
         private int getActionColor(String type) {
             return switch (type) {
+                case "checkpoint" -> 0xFFFF2255;
                 case "wait_until", "delay", "await_trigger" -> 0xFFFFAA00;
                 case "fork_sequence" -> 0xFF55FF55;
                 case "run_sequence" -> 0xFF00E5FF;
@@ -386,6 +387,8 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
             if (action instanceof CommandAction ca) {
                 String r = ca.getRun();
                 return r.length() > 36 ? r.substring(0, 33) + "..." : r;
+            } else if (action instanceof net.dandare21.fracturedutils.orchestrator.action.CheckpointAction cp) {
+                return String.format(java.util.Locale.ROOT, "🚩 Checkpoint %s (%.1f, %.1f, %.1f)", cp.getTargetSelector(), cp.getX(), cp.getY(), cp.getZ());
             } else if (action instanceof WaitUntilAction wua) {
                 String mode = wua.getWaitType().toLowerCase();
                 if (mode.equals("delay")) {

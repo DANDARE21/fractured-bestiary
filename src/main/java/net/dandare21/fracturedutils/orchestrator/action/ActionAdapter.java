@@ -17,6 +17,7 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
         builder.registerTypeAdapter(RunSequenceAction.class, adapter);
         builder.registerTypeAdapter(StallParentAction.class, adapter);
         builder.registerTypeAdapter(ResumeParentAction.class, adapter);
+        builder.registerTypeAdapter(CheckpointAction.class, adapter);
         return builder;
     }
 
@@ -39,6 +40,8 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
         switch (type) {
             case "command":
                 return RAW_GSON.fromJson(obj, CommandAction.class);
+            case "checkpoint":
+                return RAW_GSON.fromJson(obj, CheckpointAction.class);
             case "wait_until":
                 return RAW_GSON.fromJson(obj, WaitUntilAction.class);
             case "proximity":

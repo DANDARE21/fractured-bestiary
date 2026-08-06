@@ -16,6 +16,7 @@ public class ServerConfig {
     private static final Path CONFIG_FILE = FMLPaths.CONFIGDIR.get().resolve("fracturedutils-server.json");
 
     private static boolean keepInventoryNoXp = false;
+    private static int teamWipeScreenDurationSeconds = 3;
     private static boolean loaded = false;
 
     public static synchronized void load() {
@@ -27,6 +28,9 @@ public class ServerConfig {
                     if (json != null) {
                         if (json.has("keepInventoryNoXp")) {
                             keepInventoryNoXp = json.get("keepInventoryNoXp").getAsBoolean();
+                        }
+                        if (json.has("teamWipeScreenDurationSeconds")) {
+                            teamWipeScreenDurationSeconds = Math.max(1, json.get("teamWipeScreenDurationSeconds").getAsInt());
                         }
                         FracturedUtils.LOGGER.info("[ServerConfig] Loaded server configuration.");
                     }
@@ -45,6 +49,7 @@ public class ServerConfig {
         try {
             JsonObject json = new JsonObject();
             json.addProperty("keepInventoryNoXp", keepInventoryNoXp);
+            json.addProperty("teamWipeScreenDurationSeconds", teamWipeScreenDurationSeconds);
 
             try (Writer writer = Files.newBufferedWriter(CONFIG_FILE)) {
                 GSON.toJson(json, writer);
@@ -63,6 +68,20 @@ public class ServerConfig {
         load();
         if (keepInventoryNoXp != enabled) {
             keepInventoryNoXp = enabled;
+            save();
+        }
+    }
+
+    public static int getTeamWipeScreenDurationSeconds() {
+        load();
+        return teamWipeScreenDurationSeconds;
+    }
+
+    public static void setTeamWipeScreenDurationSeconds(int seconds) {
+        load();
+        int val = Math.max(1, seconds);
+        if (teamWipeScreenDurationSeconds != val) {
+            teamWipeScreenDurationSeconds = val;
             save();
         }
     }

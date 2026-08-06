@@ -37,6 +37,47 @@ public class ServerEventHandler {
         if (event.phase == TickEvent.Phase.END && event.getServer() != null) {
             OrchestratorManager.getInstance().tick(event.getServer());
             WaitingRoomManager.getInstance().tick(event.getServer());
+            net.dandare21.fracturedutils.checkpoint.CheckpointManager.getInstance().tick(event.getServer());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            net.dandare21.fracturedutils.checkpoint.CheckpointManager mgr = net.dandare21.fracturedutils.checkpoint.CheckpointManager.getInstance();
+            if (mgr.isPlayerDowned(player.getUUID())) {
+                event.setCanceled(true);
+                return;
+            }
+
+            if (mgr.hasActiveCheckpoint() && !player.isSpectator() && mgr.isPlayerMatchingCheckpoint(player.getServer(), player)) {
+                if (player.getHealth() - event.getAmount() <= 0.0f) {
+                    event.setCanceled(true);
+                    mgr.setPlayerDowned(player);
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            net.dandare21.fracturedutils.checkpoint.CheckpointManager mgr = net.dandare21.fracturedutils.checkpoint.CheckpointManager.getInstance();
+            if (mgr.hasActiveCheckpoint() && !player.isSpectator() && mgr.isPlayerMatchingCheckpoint(player.getServer(), player)) {
+                event.setCanceled(true);
+                mgr.setPlayerDowned(player);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteract(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract event) {
+        if (event.getTarget() instanceof ServerPlayer targetPlayer && event.getEntity() instanceof ServerPlayer reviver) {
+            net.dandare21.fracturedutils.checkpoint.CheckpointManager mgr = net.dandare21.fracturedutils.checkpoint.CheckpointManager.getInstance();
+            if (mgr.isPlayerDowned(targetPlayer.getUUID())) {
+                mgr.recordReviveAttempt(reviver, targetPlayer);
+                event.setCanceled(true);
+            }
         }
     }
 

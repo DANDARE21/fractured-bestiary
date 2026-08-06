@@ -15,6 +15,9 @@ public class ModParticles {
     public static final RegistryObject<SimpleParticleType> MARKER_PARTICLE =
             PARTICLES.register("marker_particle", () -> new SimpleParticleType(false));
 
+    public static final RegistryObject<SimpleParticleType> DOWNED_MARKER =
+            PARTICLES.register("downed_marker", () -> new SimpleParticleType(false));
+
     public static void register(IEventBus eventBus) {
         PARTICLES.register(eventBus);
     }

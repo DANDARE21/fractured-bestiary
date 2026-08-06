@@ -26,6 +26,7 @@ public class WaitUntilAction implements OrchestratorAction {
     private boolean opsOnlyVisibility = true;
     private boolean areaOpsOnlyVisibility = true;
     private boolean showRadiusArea = true;
+    private String targetSelector = "@a";
 
     private transient int remainingTicks = -1;
     private transient boolean triggered = false;
@@ -178,6 +179,14 @@ public class WaitUntilAction implements OrchestratorAction {
         this.showRadiusArea = showRadiusArea;
     }
 
+    public String getTargetSelector() {
+        return targetSelector != null && !targetSelector.isBlank() ? targetSelector : "@a";
+    }
+
+    public void setTargetSelector(String targetSelector) {
+        this.targetSelector = (targetSelector != null && !targetSelector.isBlank()) ? targetSelector : "@a";
+    }
+
     public void trigger() {
         this.triggered = true;
     }
@@ -317,7 +326,13 @@ public class WaitUntilAction implements OrchestratorAction {
             double radSq = effectiveRadius * effectiveRadius;
             boolean conditionMet = false;
 
-            java.util.List<ServerPlayer> players = level.players();
+            java.util.List<ServerPlayer> matchingPlayers = net.dandare21.fracturedutils.util.SelectorUtils.getTargetPlayers(server, getTargetSelector());
+            java.util.List<ServerPlayer> players = new java.util.ArrayList<>();
+            for (ServerPlayer p : level.players()) {
+                if (matchingPlayers.contains(p)) {
+                    players.add(p);
+                }
+            }
 
             if (requireAllPlayers) {
                 if (!players.isEmpty()) {

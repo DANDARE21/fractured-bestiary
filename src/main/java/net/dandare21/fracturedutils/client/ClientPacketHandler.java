@@ -63,4 +63,23 @@ public class ClientPacketHandler {
     public static void handleSyncPings(List<net.dandare21.fracturedutils.ping.HudPing> pings) {
         ClientPingData.setPings(pings);
     }
+
+    public static void handleSyncDowned(boolean downed, boolean revivingOther, float reviveProgress) {
+        ClientDownedData.updateState(downed, revivingOther, reviveProgress);
+        Minecraft mc = Minecraft.getInstance();
+        if (downed) {
+            if (!(mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) && !(mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen)) {
+                mc.setScreen(new net.dandare21.fracturedutils.client.gui.DownedSpectateScreen());
+            }
+        } else {
+            if (mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) {
+                mc.setScreen(null);
+            }
+        }
+    }
+
+    public static void handleTeamWipe(int durationSeconds) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.setScreen(new net.dandare21.fracturedutils.client.gui.TeamWipeScreen(durationSeconds));
+    }
 }

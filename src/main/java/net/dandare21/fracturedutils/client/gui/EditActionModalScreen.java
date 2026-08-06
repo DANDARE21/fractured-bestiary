@@ -37,7 +37,11 @@ public class EditActionModalScreen extends Screen {
     private EditBox xField;
     private EditBox yField;
     private EditBox zField;
+    private EditBox yawField;
+    private EditBox pitchField;
+    private EditBox labelField;
     private EditBox radiusField;
+    private EditBox targetSelectorField;
     private CyberpunkCheckbox requireAllPlayersCheckbox;
     private CyberpunkCheckbox opsOnlyVisibilityCheckbox;
     private CyberpunkCheckbox areaOpsOnlyCheckbox;
@@ -106,6 +110,7 @@ public class EditActionModalScreen extends Screen {
         // --- 1. Action Type Selection Dropdown ---
         List<CyberpunkDropdown.DropdownEntry<String>> actionEntries = new ArrayList<>();
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("command", Component.literal("Command Action"), Component.literal("Execute console command (%player% supported)")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("checkpoint", Component.literal("Checkpoint Action"), Component.literal("Set checkpoint location; teleports team & rewinds sequence on wipe")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("wait_until", Component.literal("Wait Until Action"), Component.literal("Pause sequence until condition is met")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("await_trigger", Component.literal("Await Trigger"), Component.literal("Wait for external trigger ID event")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("fork_sequence", Component.literal("Fork Sequence"), Component.literal("Asynchronously start sub-sequence")));
@@ -244,6 +249,7 @@ public class EditActionModalScreen extends Screen {
                     boolean defaultMarkerOpsOnly = true;
                     boolean defaultAreaOpsOnly = true;
                     boolean defaultShowArea = true;
+                    String defaultTargetSelector = "@a";
                     if (action instanceof WaitUntilAction w) {
                         defaultX = w.getX();
                         defaultY = w.getY();
@@ -253,6 +259,7 @@ public class EditActionModalScreen extends Screen {
                         defaultMarkerOpsOnly = w.isOpsOnlyVisibility();
                         defaultAreaOpsOnly = w.isAreaOpsOnlyVisibility();
                         defaultShowArea = w.isShowRadiusArea();
+                        defaultTargetSelector = w.getTargetSelector();
                     }
 
                     int boxW = 70;
@@ -294,6 +301,11 @@ public class EditActionModalScreen extends Screen {
                             }, CYAN_MAIN, false, Component.literal("Copy your player's current X, Y, Z coordinates into fields")
                     );
                     this.addRenderableWidget(this.setMyPositionButton);
+
+                    this.targetSelectorField = new EditBox(this.font, left + 162, top + 130, panelWidth - 182, boxH, Component.literal("Target Selector"));
+                    this.targetSelectorField.setBordered(false);
+                    this.targetSelectorField.setValue(defaultTargetSelector != null ? defaultTargetSelector : "@a");
+                    this.addRenderableWidget(this.targetSelectorField);
 
                     this.requireAllPlayersCheckbox = new CyberpunkCheckbox(
                             left + 20, top + 152, panelWidth - 40, 18,
@@ -345,6 +357,89 @@ public class EditActionModalScreen extends Screen {
                 this.inputField.setValue("sub_sequence.json");
             }
             this.addRenderableWidget(this.inputField);
+        } else if (actionType.equalsIgnoreCase("checkpoint")) {
+            this.commandSuggestions = null;
+            double defaultX = 0.0, defaultY = 64.0, defaultZ = 0.0;
+            float defaultYaw = 0.0f, defaultPitch = 0.0f;
+            String defaultLabel = "";
+            String defaultTargetSelector = "@a";
+            if (action instanceof CheckpointAction cp) {
+                defaultX = cp.getX();
+                defaultY = cp.getY();
+                defaultZ = cp.getZ();
+                defaultYaw = cp.getYaw();
+                defaultPitch = cp.getPitch();
+                defaultLabel = cp.getLabel();
+                defaultTargetSelector = cp.getTargetSelector();
+            }
+
+            int boxH = 18;
+
+            // Row 1: X, Y, Z
+            int r1Y = top + 105;
+            int boxW3 = 95;
+
+            this.xField = new EditBox(this.font, left + 22, r1Y, boxW3 - 4, boxH, Component.literal("X"));
+            this.xField.setBordered(false);
+            this.xField.setValue(String.format(Locale.US, "%.1f", defaultX));
+            this.addRenderableWidget(this.xField);
+
+            this.yField = new EditBox(this.font, left + 132, r1Y, boxW3 - 4, boxH, Component.literal("Y"));
+            this.yField.setBordered(false);
+            this.yField.setValue(String.format(Locale.US, "%.1f", defaultY));
+            this.addRenderableWidget(this.yField);
+
+            this.zField = new EditBox(this.font, left + 242, r1Y, boxW3 - 4, boxH, Component.literal("Z"));
+            this.zField.setBordered(false);
+            this.zField.setValue(String.format(Locale.US, "%.1f", defaultZ));
+            this.addRenderableWidget(this.zField);
+
+            // Row 2: Yaw & Pitch
+            int r2Y = top + 147;
+            int boxW2 = 145;
+
+            this.yawField = new EditBox(this.font, left + 22, r2Y, boxW2 - 4, boxH, Component.literal("Yaw"));
+            this.yawField.setBordered(false);
+            this.yawField.setValue(String.format(Locale.US, "%.1f", defaultYaw));
+            this.addRenderableWidget(this.yawField);
+
+            this.pitchField = new EditBox(this.font, left + 192, r2Y, boxW2 - 4, boxH, Component.literal("Pitch"));
+            this.pitchField.setBordered(false);
+            this.pitchField.setValue(String.format(Locale.US, "%.1f", defaultPitch));
+            this.addRenderableWidget(this.pitchField);
+
+            // Row 3: Checkpoint Label
+            int r3Y = top + 189;
+            this.labelField = new EditBox(this.font, left + 22, r3Y, panelWidth - 44, boxH, Component.literal("Label"));
+            this.labelField.setBordered(false);
+            this.labelField.setValue(defaultLabel != null ? defaultLabel : "");
+            this.addRenderableWidget(this.labelField);
+
+            // Row 4: Auto-Fill Button & Target Selector
+            this.setMyPositionButton = new CyberpunkButton(
+                    left + 20, top + 224, 180, 20,
+                    Component.literal("📍 SET TO MY POS"),
+                    b -> {
+                        if (this.minecraft != null && this.minecraft.player != null) {
+                            double px = this.minecraft.player.getX();
+                            double py = this.minecraft.player.getY();
+                            double pz = this.minecraft.player.getZ();
+                            float yaw = this.minecraft.player.getYRot();
+                            float pitch = this.minecraft.player.getXRot();
+                            if (xField != null) xField.setValue(String.format(Locale.US, "%.1f", px));
+                            if (yField != null) yField.setValue(String.format(Locale.US, "%.1f", py));
+                            if (zField != null) zField.setValue(String.format(Locale.US, "%.1f", pz));
+                            if (yawField != null) yawField.setValue(String.format(Locale.US, "%.1f", yaw));
+                            if (pitchField != null) pitchField.setValue(String.format(Locale.US, "%.1f", pitch));
+                        }
+                    }, CYAN_MAIN, false, Component.literal("Copy player position & facing angles into checkpoint parameters")
+            );
+            this.addRenderableWidget(this.setMyPositionButton);
+
+            this.targetSelectorField = new EditBox(this.font, left + 212, top + 225, 124, boxH, Component.literal("Target Selector"));
+            this.targetSelectorField.setBordered(false);
+            this.targetSelectorField.setValue(defaultTargetSelector != null ? defaultTargetSelector : "@a");
+            this.addRenderableWidget(this.targetSelectorField);
         } else {
             this.commandSuggestions = null;
         }
@@ -413,6 +508,7 @@ public class EditActionModalScreen extends Screen {
 
     private OrchestratorAction createActionForType(String type) {
         return switch (type.toLowerCase()) {
+            case "checkpoint" -> new CheckpointAction(0.0, 64.0, 0.0, 0.0f, 0.0f, "");
             case "wait_until" -> new WaitUntilAction(waitUntilType, 20, "", "Resume Sequence");
             case "await_trigger" -> new AwaitTriggerAction("trigger_1");
             case "fork_sequence" -> new ForkSequenceAction("sub_sequence.json");
@@ -431,6 +527,14 @@ public class EditActionModalScreen extends Screen {
 
         if (action instanceof CommandAction ca) {
             ca.setRun(val);
+        } else if (action instanceof CheckpointAction cp) {
+            if (xField != null) try { cp.setX(Double.parseDouble(xField.getValue().trim())); } catch (Exception ignored) {}
+            if (yField != null) try { cp.setY(Double.parseDouble(yField.getValue().trim())); } catch (Exception ignored) {}
+            if (zField != null) try { cp.setZ(Double.parseDouble(zField.getValue().trim())); } catch (Exception ignored) {}
+            if (yawField != null) try { cp.setYaw(Float.parseFloat(yawField.getValue().trim())); } catch (Exception ignored) {}
+            if (pitchField != null) try { cp.setPitch(Float.parseFloat(pitchField.getValue().trim())); } catch (Exception ignored) {}
+            if (labelField != null) cp.setLabel(labelField.getValue().trim());
+            if (targetSelectorField != null) cp.setTargetSelector(targetSelectorField.getValue().trim());
         } else if (action instanceof AwaitTriggerAction ata) {
             ata.setTriggerId(val);
         } else if (action instanceof WaitUntilAction wua) {
@@ -447,6 +551,7 @@ public class EditActionModalScreen extends Screen {
                 if (yField != null) try { wua.setY(Double.parseDouble(yField.getValue().trim())); } catch (Exception ignored) {}
                 if (zField != null) try { wua.setZ(Double.parseDouble(zField.getValue().trim())); } catch (Exception ignored) {}
                 if (radiusField != null) try { wua.setRadius(Double.parseDouble(radiusField.getValue().trim())); } catch (Exception ignored) {}
+                if (targetSelectorField != null) wua.setTargetSelector(targetSelectorField.getValue().trim());
                 if (requireAllPlayersCheckbox != null) {
                     wua.setRequireAllPlayers(requireAllPlayersCheckbox.isChecked());
                 }
@@ -639,6 +744,10 @@ public class EditActionModalScreen extends Screen {
             promptLabel = actionType.equalsIgnoreCase("stall_parent") ? "No input required. Pauses parent sequence." : "No input required. Wakes up parent sequence.";
             promptColor = 0xFFAABBCC;
             showInputFieldBox = false;
+        } else if (actionType.equalsIgnoreCase("checkpoint")) {
+            promptLabel = "Checkpoint Action Parameters:";
+            promptColor = 0xFFAABBCC;
+            showInputFieldBox = false;
         } else {
             promptLabel = switch (actionType.toLowerCase()) {
                 case "fork_sequence", "run_sequence" -> "Subsequence JSON File Name [Start Action #]:";
@@ -658,6 +767,31 @@ public class EditActionModalScreen extends Screen {
             drawBorderBox(graphics, left + 100, top + 106, 70, 20, 0xAA00E5FF, 0xEE08121B);
             drawBorderBox(graphics, left + 180, top + 106, 70, 20, 0xAA00E5FF, 0xEE08121B);
             drawBorderBox(graphics, left + 260, top + 106, 70, 20, 0xAA00E5FF, 0xEE08121B);
+
+            graphics.drawString(this.font, "Target Selector (e.g. @a, @a[team=RED])", left + 160, top + 118, 0xFFAABBCC, false);
+            drawBorderBox(graphics, left + 160, top + 128, panelWidth - 180, 20, 0xAA00E5FF, 0xEE08121B);
+        } else if (actionType.equalsIgnoreCase("checkpoint")) {
+            // Row 1: X, Y, Z
+            graphics.drawString(this.font, "X Position", left + 20, top + 93, 0xFFAABBCC, false);
+            graphics.drawString(this.font, "Y Position", left + 130, top + 93, 0xFFAABBCC, false);
+            graphics.drawString(this.font, "Z Position", left + 240, top + 93, 0xFFAABBCC, false);
+            drawBorderBox(graphics, left + 20, top + 104, 95, 20, 0xAA00E5FF, 0xEE08121B);
+            drawBorderBox(graphics, left + 130, top + 104, 95, 20, 0xAA00E5FF, 0xEE08121B);
+            drawBorderBox(graphics, left + 240, top + 104, 95, 20, 0xAA00E5FF, 0xEE08121B);
+
+            // Row 2: Yaw, Pitch
+            graphics.drawString(this.font, "Yaw Angle (Horizontal)", left + 20, top + 135, 0xFFAABBCC, false);
+            graphics.drawString(this.font, "Pitch Angle (Vertical)", left + 190, top + 135, 0xFFAABBCC, false);
+            drawBorderBox(graphics, left + 20, top + 146, 145, 20, 0xAA00E5FF, 0xEE08121B);
+            drawBorderBox(graphics, left + 190, top + 146, 145, 20, 0xAA00E5FF, 0xEE08121B);
+
+            // Row 3: Label
+            graphics.drawString(this.font, "Checkpoint Label / Description (Optional)", left + 20, top + 177, 0xFFAABBCC, false);
+            drawBorderBox(graphics, left + 20, top + 188, panelWidth - 40, 20, 0xAA00E5FF, 0xEE08121B);
+
+            // Row 4: Target Selector
+            graphics.drawString(this.font, "Target Selector", left + 210, top + 213, 0xFFAABBCC, false);
+            drawBorderBox(graphics, left + 210, top + 223, 128, 20, 0xAA00E5FF, 0xEE08121B);
         } else {
             int labelY = (actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay")) ? top + 114 : top + 104;
             graphics.drawString(this.font, promptLabel, left + 20, labelY, promptColor, false);

@@ -180,6 +180,8 @@ public class OrchestratorManager {
     private String getActionDetails(OrchestratorAction action) {
         if (action instanceof CommandAction ca) {
             return ca.getRun();
+        } else if (action instanceof net.dandare21.fracturedutils.orchestrator.action.CheckpointAction cp) {
+            return String.format(Locale.ROOT, "checkpoint %s:%.1f,%.1f,%.1f", cp.getTargetSelector(), cp.getX(), cp.getY(), cp.getZ());
         } else if (action instanceof DelayAction da) {
             return String.valueOf(da.getTicks());
         } else if (action instanceof WaitUntilAction wua) {

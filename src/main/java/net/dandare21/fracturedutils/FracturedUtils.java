@@ -60,6 +60,7 @@ public class FracturedUtils
         public static void registerParticleProviders(net.minecraftforge.client.event.RegisterParticleProvidersEvent event)
         {
             event.registerSpriteSet(net.dandare21.fracturedutils.particle.ModParticles.MARKER_PARTICLE.get(), net.dandare21.fracturedutils.particle.MarkerParticle.Provider::new);
+            event.registerSpriteSet(net.dandare21.fracturedutils.particle.ModParticles.DOWNED_MARKER.get(), net.dandare21.fracturedutils.particle.MarkerParticle.Provider::new);
         }
     }
 }
