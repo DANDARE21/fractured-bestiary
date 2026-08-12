@@ -71,6 +71,7 @@ minecraft {
             // Mixin remapping properties for playerAnimator
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            property 'mixin.config', 'playerAnimator-common.mixins.json'
 
             property 'forge.logging.markers', 'REGISTRIES'
 
@@ -243,6 +244,13 @@ publishing {
             url "file://${project.projectDir}/mcmodsrepo"
         }
     }
+}
+
+tasks.register('copyModsToRun', Copy) {
+    from configurations.runtimeClasspath.filter { 
+        it.name.contains('geckolib') || it.name.contains('player-anim') || it.name.contains('bendy') 
+    }
+    into project.file('run/mods')
 }
 
 tasks.withType(JavaCompile).configureEach {

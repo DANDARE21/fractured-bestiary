@@ -90,8 +90,8 @@ public class CheckpointManager {
             player.addEffect(new MobEffectInstance(MobEffects.JUMP, 999999, 128, false, false, false));
             player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 999999, 255, false, false, false));
 
-            // Notify client HUD
-            ModMessages.sendToPlayer(new S2CSyncDownedPacket(true, false, 0.0f), player);
+            // Notify client HUD and sync to all clients
+            ModMessages.sendToAllPlayers(new S2CSyncDownedPacket(player.getUUID(), true, false, 0.0f));
             player.sendSystemMessage(Component.literal("⚠️ YOU ARE DOWNED! Wait for a teammate to revive you.").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
         }
     }
@@ -112,7 +112,7 @@ public class CheckpointManager {
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
         }
 
-        ModMessages.sendToPlayer(new S2CSyncDownedPacket(false, false, 0.0f), player);
+        ModMessages.sendToAllPlayers(new S2CSyncDownedPacket(player.getUUID(), false, false, 0.0f));
         player.sendSystemMessage(Component.literal("✨ YOU WERE REVIVED!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
     }
 
@@ -128,12 +128,12 @@ public class CheckpointManager {
         reviveProgress.put(targetUUID, current);
 
         float progressFraction = Math.min(1.0f, current / 60.0f);
-        ModMessages.sendToPlayer(new S2CSyncDownedPacket(true, false, progressFraction), target);
-        ModMessages.sendToPlayer(new S2CSyncDownedPacket(false, true, progressFraction), reviver);
+        ModMessages.sendToAllPlayers(new S2CSyncDownedPacket(targetUUID, true, false, progressFraction));
+        ModMessages.sendToPlayer(new S2CSyncDownedPacket(reviverUUID, false, true, progressFraction), reviver);
 
         if (current >= 60) {
             revivePlayer(target);
-            ModMessages.sendToPlayer(new S2CSyncDownedPacket(false, false, 0.0f), reviver);
+            ModMessages.sendToAllPlayers(new S2CSyncDownedPacket(reviverUUID, false, false, 0.0f));
         }
     }
 
@@ -225,10 +225,10 @@ public class CheckpointManager {
                     reviveProgress.put(targetUUID, p);
                     if (target != null) {
                         float prog = p / 60.0f;
-                        ModMessages.sendToPlayer(new S2CSyncDownedPacket(true, false, prog), target);
+                        ModMessages.sendToPlayer(new S2CSyncDownedPacket(targetUUID, true, false, prog), target);
                     }
                     if (reviver != null && isPlayerDowned(reviver.getUUID())) {
-                        ModMessages.sendToPlayer(new S2CSyncDownedPacket(true, false, 0.0f), reviver);
+                        ModMessages.sendToPlayer(new S2CSyncDownedPacket(reviver.getUUID(), true, false, 0.0f), reviver);
                     }
                 } else {
                     reviveProgress.remove(targetUUID);

@@ -43,21 +43,27 @@ public class PlayerAnimationManager {
     }
 
     private static ModifierLayer<IAnimation> getOrCreateLayer(AbstractClientPlayer clientPlayer) {
+        AnimationStack animationStack = PlayerAnimationAccess.getPlayerAnimLayer(clientPlayer);
+        if (animationStack == null) {
+            FracturedUtils.LOGGER.error("[PlayerAnim] PlayerAnimationAccess.getPlayerAnimLayer returned null for player {}!", clientPlayer.getScoreboardName());
+            return null;
+        }
+
         ModifierLayer<IAnimation> layer = playerLayers.get(clientPlayer);
         if (layer == null) {
-            AnimationStack animationStack = PlayerAnimationAccess.getPlayerAnimLayer(clientPlayer);
-            if (animationStack != null) {
-                layer = new ModifierLayer<>();
-                animationStack.addAnimLayer(1000, layer);
-                playerLayers.put(clientPlayer, layer);
-                FracturedUtils.LOGGER.info("[PlayerAnim] Attached new ModifierLayer (priority 1000) directly to player AnimationStack");
-            }
+            layer = new ModifierLayer<>();
+            animationStack.addAnimLayer(1000, layer);
+            playerLayers.put(clientPlayer, layer);
+            FracturedUtils.LOGGER.info("[PlayerAnim] Attached new ModifierLayer (priority 1000) directly to player AnimationStack");
         }
         return layer;
     }
 
     public static void playAnimation(Player player, String animationName, boolean loop) {
-        if (!(player instanceof AbstractClientPlayer clientPlayer)) return;
+        if (!(player instanceof AbstractClientPlayer clientPlayer)) {
+            FracturedUtils.LOGGER.error("[PlayerAnim] playAnimation called on non-AbstractClientPlayer: {}", player);
+            return;
+        }
 
         ModifierLayer<IAnimation> layer = getOrCreateLayer(clientPlayer);
         if (layer == null) {
@@ -71,17 +77,16 @@ public class PlayerAnimationManager {
                 registeredMap != null ? registeredMap.size() : 0, 
                 registeredMap != null ? registeredMap.keySet() : "null");
 
-        ResourceLocation id1 = new ResourceLocation(FracturedUtils.MOD_ID, animationName);
-        ResourceLocation id2 = new ResourceLocation(FracturedUtils.MOD_ID, "animation.player.startDown");
-        ResourceLocation id3 = new ResourceLocation(FracturedUtils.MOD_ID, "startDown");
-        ResourceLocation id4 = new ResourceLocation(FracturedUtils.MOD_ID, "startdown");
-        ResourceLocation id5 = new ResourceLocation(FracturedUtils.MOD_ID, "player.animation");
+        String cleanName = animationName.toLowerCase().replaceAll("[^a-z0-9/._-]", "");
+        ResourceLocation id1 = new ResourceLocation(FracturedUtils.MOD_ID, cleanName);
+        ResourceLocation id2 = new ResourceLocation(FracturedUtils.MOD_ID, "animation.player.startdown");
+        ResourceLocation id3 = new ResourceLocation(FracturedUtils.MOD_ID, "startdown");
+        ResourceLocation id4 = new ResourceLocation(FracturedUtils.MOD_ID, "player.animation");
 
         KeyframeAnimation animation = PlayerAnimationRegistry.getAnimation(id1);
         if (animation == null) animation = PlayerAnimationRegistry.getAnimation(id2);
         if (animation == null) animation = PlayerAnimationRegistry.getAnimation(id3);
         if (animation == null) animation = PlayerAnimationRegistry.getAnimation(id4);
-        if (animation == null) animation = PlayerAnimationRegistry.getAnimation(id5);
 
         // Case-insensitive & suffix search across all registered keys
         if (animation == null && registeredMap != null) {
@@ -96,16 +101,41 @@ public class PlayerAnimationManager {
             }
         }
 
-        if (animation != null) {
-            KeyframeAnimationPlayer animPlayer = new KeyframeAnimationPlayer(animation);
-            animPlayer.setFirstPersonMode(FirstPersonMode.THIRD_PERSON_MODEL);
-            animPlayer.setFirstPersonConfiguration(new FirstPersonConfiguration());
+        // Direct fallback asset loader if registry returned null
+        if (animation == null) {
+            try {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                var resourceManager = mc.getResourceManager();
+                ResourceLocation loc = new ResourceLocation(FracturedUtils.MOD_ID, "player_animation/player.animation.json");
+                var resourceOpt = resourceManager.getResource(loc);
+                if (resourceOpt.isPresent()) {
+                    try (var stream = resourceOpt.get().open()) {
+                        var list = dev.kosmx.playerAnim.core.data.gson.AnimationSerializing.deserializeAnimation(stream);
+                        if (list != null && !list.isEmpty()) {
+                            animation = list.get(0);
+                            FracturedUtils.LOGGER.info("[PlayerAnim] DIRECT LOAD SUCCESS! Loaded KeyframeAnimation from player.animation.json");
+                        }
+                    }
+                }
+            } catch (Throwable t) {
+                FracturedUtils.LOGGER.error("[PlayerAnim] Exception during direct animation asset fallback loading!", t);
+            }
+        }
 
-            layer.setAnimation(animPlayer);
-            FracturedUtils.LOGGER.info("[PlayerAnim] SUCCESS! Playing KeyframeAnimation on player layer!");
-        } else {
-            FracturedUtils.LOGGER.error("[PlayerAnim] Unable to find KeyframeAnimation '{}' in PlayerAnimationRegistry! Tried: {}, {}, {}, {}, {}", 
-                    animationName, id1, id2, id3, id4, id5);
+        try {
+            if (animation != null) {
+                KeyframeAnimationPlayer animPlayer = new KeyframeAnimationPlayer(animation);
+                animPlayer.setFirstPersonMode(FirstPersonMode.THIRD_PERSON_MODEL);
+                animPlayer.setFirstPersonConfiguration(new FirstPersonConfiguration());
+
+                layer.setAnimation(animPlayer);
+                FracturedUtils.LOGGER.info("[PlayerAnim] SUCCESS! Playing KeyframeAnimation on player layer!");
+            } else {
+                FracturedUtils.LOGGER.error("[PlayerAnim] Unable to find KeyframeAnimation '{}' in PlayerAnimationRegistry! Tried: {}, {}, {}, {}", 
+                        animationName, id1, id2, id3, id4);
+            }
+        } catch (Throwable t) {
+            FracturedUtils.LOGGER.error("[PlayerAnim] EXCEPTION while instantiating or setting KeyframeAnimation on layer!", t);
         }
     }
 

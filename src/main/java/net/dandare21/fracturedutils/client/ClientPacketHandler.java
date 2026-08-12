@@ -64,26 +64,36 @@ public class ClientPacketHandler {
         ClientPingData.setPings(pings);
     }
 
-    public static void handleSyncDowned(boolean downed, boolean revivingOther, float reviveProgress) {
-        boolean wasDowned = ClientDownedData.isDowned();
-        net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Client received handleSyncDowned packet: downed={}, wasDowned={}, revivingOther={}, reviveProgress={}", downed, wasDowned, revivingOther, reviveProgress);
-        ClientDownedData.updateState(downed, revivingOther, reviveProgress);
+    public static void handleSyncDowned(UUID playerUuid, boolean downed, boolean revivingOther, float reviveProgress) {
         Minecraft mc = Minecraft.getInstance();
-        if (downed) {
-            if (mc.player != null && !wasDowned) {
-                net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering playAnimation('startDown') for local player {}", mc.player.getScoreboardName());
-                net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.playAnimation(mc.player, "startDown", true);
+        boolean isLocalPlayer = mc.player != null && mc.player.getUUID().equals(playerUuid);
+
+        if (isLocalPlayer) {
+            boolean wasDowned = ClientDownedData.isDowned();
+            ClientDownedData.updateState(downed, revivingOther, reviveProgress);
+            if (downed) {
+                if (!(mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) && !(mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen)) {
+                    mc.setScreen(new net.dandare21.fracturedutils.client.gui.DownedSpectateScreen());
+                }
+            } else if (wasDowned) {
+                if (mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) {
+                    mc.setScreen(null);
+                }
             }
-            if (!(mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) && !(mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen)) {
-                mc.setScreen(new net.dandare21.fracturedutils.client.gui.DownedSpectateScreen());
-            }
-        } else if (wasDowned) {
-            if (mc.player != null) {
-                net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering stopAnimation for local player {}", mc.player.getScoreboardName());
-                net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.stopAnimation(mc.player);
-            }
-            if (mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) {
-                mc.setScreen(null);
+        }
+
+        ClientDownedData.setPlayerDowned(playerUuid, downed);
+
+        if (mc.level != null) {
+            net.minecraft.world.entity.player.Player targetPlayer = mc.level.getPlayerByUUID(playerUuid);
+            if (targetPlayer != null) {
+                if (downed) {
+                    net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering playAnimation('startDown') for player {}", targetPlayer.getScoreboardName());
+                    net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.playAnimation(targetPlayer, "startDown", true);
+                } else {
+                    net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering stopAnimation for player {}", targetPlayer.getScoreboardName());
+                    net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.stopAnimation(targetPlayer);
+                }
             }
         }
     }

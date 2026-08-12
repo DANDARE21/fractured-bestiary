@@ -311,40 +311,9 @@ public class ClientEventHandler {
     @SubscribeEvent
     public static void onRenderPlayerPre(net.minecraftforge.client.event.RenderPlayerEvent.Pre event) {
         if (event.getEntity() != null && ClientDownedData.isPlayerDowned(event.getEntity().getUUID())) {
-            if (net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.isAnimationPlaying(event.getEntity())) {
-                return;
+            if (!net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.isAnimationPlaying(event.getEntity())) {
+                net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.playAnimation(event.getEntity(), "startDown", true);
             }
-            net.minecraft.client.model.PlayerModel<net.minecraft.client.player.AbstractClientPlayer> model = event.getRenderer().getModel();
-
-            // Match torso / body keyframe from player.animation.json (startDown)
-            model.body.xRot = (float) Math.toRadians(35);
-            model.body.y = 9.0f;
-            model.body.z = -5.0f;
-
-            // Match head keyframe
-            model.head.xRot = (float) Math.toRadians(57.15f);
-            model.head.yRot = (float) Math.toRadians(-12.07f);
-            model.head.zRot = (float) Math.toRadians(3.28f);
-
-            // Match right_arm keyframe
-            model.rightArm.xRot = 0.0f;
-            model.rightArm.yRot = (float) Math.toRadians(52.5f);
-            model.rightArm.zRot = 0.0f;
-
-            // Match left_arm keyframe
-            model.leftArm.xRot = (float) Math.toRadians(-1.0f);
-            model.leftArm.yRot = (float) Math.toRadians(26.72f);
-            model.leftArm.zRot = (float) Math.toRadians(86.4f);
-
-            // Match right_leg keyframe
-            model.rightLeg.xRot = (float) Math.toRadians(-7.5f);
-            model.rightLeg.yRot = 0.0f;
-            model.rightLeg.zRot = (float) Math.toRadians(2.5f);
-
-            // Match left_leg keyframe
-            model.leftLeg.xRot = (float) Math.toRadians(70.0f);
-            model.leftLeg.yRot = 0.0f;
-            model.leftLeg.zRot = (float) Math.toRadians(-5.0f);
         }
     }
 

@@ -189,6 +189,10 @@ public class ModMessages {
         INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), message);
     }
 
+    public static <MSG> void sendToAllPlayers(MSG message) {
+        INSTANCE.send(PacketDistributor.ALL.noArg(), message);
+    }
+
     public static <MSG> void sendToAllPlayers(MSG message, MinecraftServer server) {
         INSTANCE.send(PacketDistributor.ALL.noArg(), message);
     }
