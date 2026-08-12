@@ -82,6 +82,9 @@ public class ClientMarkerRenderer {
         double minY = cy;
         double maxY = cy + height;
 
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+        RenderSystem.setShaderTexture(0, GRADIENT_TEXTURE);
+
         buffer.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_TEX_COLOR);
         PoseStack.Pose lastPose = poseStack.last();
 

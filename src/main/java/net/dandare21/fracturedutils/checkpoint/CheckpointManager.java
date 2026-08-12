@@ -227,8 +227,8 @@ public class CheckpointManager {
                         float prog = p / 60.0f;
                         ModMessages.sendToPlayer(new S2CSyncDownedPacket(true, false, prog), target);
                     }
-                    if (reviver != null) {
-                        ModMessages.sendToPlayer(new S2CSyncDownedPacket(false, false, 0.0f), reviver);
+                    if (reviver != null && isPlayerDowned(reviver.getUUID())) {
+                        ModMessages.sendToPlayer(new S2CSyncDownedPacket(true, false, 0.0f), reviver);
                     }
                 } else {
                     reviveProgress.remove(targetUUID);

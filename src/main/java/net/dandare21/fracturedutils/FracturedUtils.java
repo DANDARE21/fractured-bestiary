@@ -54,6 +54,9 @@ public class FracturedUtils
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event)
         {
+            event.enqueueWork(() -> {
+                net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.init();
+            });
         }
 
         @SubscribeEvent

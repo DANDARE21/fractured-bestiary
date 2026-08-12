@@ -65,13 +65,23 @@ public class ClientPacketHandler {
     }
 
     public static void handleSyncDowned(boolean downed, boolean revivingOther, float reviveProgress) {
+        boolean wasDowned = ClientDownedData.isDowned();
+        net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Client received handleSyncDowned packet: downed={}, wasDowned={}, revivingOther={}, reviveProgress={}", downed, wasDowned, revivingOther, reviveProgress);
         ClientDownedData.updateState(downed, revivingOther, reviveProgress);
         Minecraft mc = Minecraft.getInstance();
         if (downed) {
+            if (mc.player != null && !wasDowned) {
+                net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering playAnimation('startDown') for local player {}", mc.player.getScoreboardName());
+                net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.playAnimation(mc.player, "startDown", true);
+            }
             if (!(mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) && !(mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen)) {
                 mc.setScreen(new net.dandare21.fracturedutils.client.gui.DownedSpectateScreen());
             }
-        } else {
+        } else if (wasDowned) {
+            if (mc.player != null) {
+                net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering stopAnimation for local player {}", mc.player.getScoreboardName());
+                net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.stopAnimation(mc.player);
+            }
             if (mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen) {
                 mc.setScreen(null);
             }
