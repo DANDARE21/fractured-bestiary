@@ -71,6 +71,10 @@ public class PlayerAnimationManager {
             return;
         }
 
+        if (layer.isActive()) {
+            return;
+        }
+
         // Print all registered animation IDs in PlayerAnimationRegistry for debugging
         var registeredMap = PlayerAnimationRegistry.getAnimations();
         FracturedUtils.LOGGER.info("[PlayerAnim] Current PlayerAnimationRegistry size: {}. Registered keys: {}", 

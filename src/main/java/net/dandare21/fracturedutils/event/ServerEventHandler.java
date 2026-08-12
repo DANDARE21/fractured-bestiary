@@ -30,7 +30,6 @@ public class ServerEventHandler {
         DownloadCinematicCommand.register(event.getDispatcher());
         net.dandare21.fracturedutils.command.OrchestratorCommand.register(event.getDispatcher());
         net.dandare21.fracturedutils.command.PingCommand.register(event.getDispatcher());
-        net.dandare21.fracturedutils.command.TestAnimCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent

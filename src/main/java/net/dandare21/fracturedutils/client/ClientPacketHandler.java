@@ -88,8 +88,10 @@ public class ClientPacketHandler {
             net.minecraft.world.entity.player.Player targetPlayer = mc.level.getPlayerByUUID(playerUuid);
             if (targetPlayer != null) {
                 if (downed) {
-                    net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering playAnimation('startDown') for player {}", targetPlayer.getScoreboardName());
-                    net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.playAnimation(targetPlayer, "startDown", true);
+                    if (!net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.isAnimationPlaying(targetPlayer)) {
+                        net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering playAnimation('startDown') for player {}", targetPlayer.getScoreboardName());
+                        net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.playAnimation(targetPlayer, "startDown", true);
+                    }
                 } else {
                     net.dandare21.fracturedutils.FracturedUtils.LOGGER.info("[PlayerAnim] Triggering stopAnimation for player {}", targetPlayer.getScoreboardName());
                     net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.stopAnimation(targetPlayer);
