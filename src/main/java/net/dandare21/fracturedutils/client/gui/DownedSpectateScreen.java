@@ -17,6 +17,7 @@ import java.util.List;
 
 public class DownedSpectateScreen extends Screen {
     private int spectateIndex = 0;
+    private float smoothReviveProgress = 0.0f;
 
     public DownedSpectateScreen() {
         super(Component.literal("Downed Spectate Screen"));
@@ -80,28 +81,49 @@ public class DownedSpectateScreen extends Screen {
         graphics.fill(centerX - 130, 10, centerX + 130, 12, 0xFF00E5FF);
         graphics.fill(centerX - 130, 40, centerX + 130, 42, 0xFF00E5FF);
 
-        graphics.drawCenteredString(this.font, Component.literal("⚠️ YOU ARE DOWNED - SPECTATING").withStyle(ChatFormatting.BOLD), centerX, 16, 0xFFFF3355);
-        graphics.drawCenteredString(this.font, Component.literal("Press  ←  or  →  Arrow Keys to Switch Target").withStyle(ChatFormatting.GRAY), centerX, 28, 0xFFAABBCC);
+        graphics.drawCenteredString(this.font, Component.literal("SYSTEM DOWNED - SPECTATING").withStyle(ChatFormatting.BOLD), centerX, 16, 0xFFFF3355);
+        graphics.drawCenteredString(this.font, Component.literal("Press  <-  or  ->  Arrow Keys to Switch Target").withStyle(ChatFormatting.GRAY), centerX, 28, 0xFFAABBCC);
+
+        // Smoothly interpolate revive progress
+        float targetProg = net.dandare21.fracturedutils.client.ClientDownedData.getReviveProgress();
+        if (Math.abs(smoothReviveProgress - targetProg) > 0.0001f) {
+            smoothReviveProgress += (targetProg - smoothReviveProgress) * 0.2f;
+            if (targetProg == 0.0f && smoothReviveProgress < 0.005f) {
+                smoothReviveProgress = 0.0f;
+            }
+        }
 
         // Revive Progress Overlay when being revived
-        float reviveProg = net.dandare21.fracturedutils.client.ClientDownedData.getReviveProgress();
-        if (reviveProg > 0.0f) {
+        if (smoothReviveProgress > 0.001f) {
             int boxW = 220;
-            int boxH = 36;
+            int boxH = 40;
             int boxX = centerX - (boxW / 2);
-            int boxY = 50;
+            int boxY = 48;
 
+            // 1. Dark Base Panel Fill
             graphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xEE051A0B);
-            graphics.fill(boxX, boxY, boxX + boxW, boxY + 2, 0xFF00FF55);
-            graphics.fill(boxX, boxY + boxH - 2, boxX + boxW, boxY + boxH, 0xFF00FF55);
-            graphics.fill(boxX, boxY, boxX + 2, boxY + boxH, 0xFF00FF55);
-            graphics.fill(boxX + boxW - 2, boxY, boxX + boxW, boxY + boxH, 0xFF00FF55);
 
-            String text = String.format(java.util.Locale.US, "✨ BEING REVIVED (%d%%)", (int)(reviveProg * 100));
+            // 2. Cyberpunk Borders & Content
+            graphics.fill(boxX, boxY, boxX + boxW, boxY + 1, 0xFF00FF55);
+            graphics.fill(boxX, boxY + boxH - 1, boxX + boxW, boxY + boxH, 0xFF00FF55);
+            graphics.fill(boxX, boxY, boxX + 1, boxY + boxH, 0xFF00FF55);
+            graphics.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + boxH, 0xFF00FF55);
+
+            String text = String.format(java.util.Locale.US, "BEING REVIVED  //  %d%%", (int)(smoothReviveProgress * 100));
             graphics.drawCenteredString(this.font, Component.literal(text).withStyle(ChatFormatting.BOLD), centerX, boxY + 7, 0xFF00FF55);
 
-            int pW = (int) ((boxW - 16) * reviveProg);
-            graphics.fill(boxX + 8, boxY + boxH - 9, boxX + 8 + pW, boxY + boxH - 5, 0xFF00FF55);
+            int trackX = boxX + 10;
+            int trackY = boxY + boxH - 12;
+            int trackW = boxW - 20;
+            int trackH = 5;
+
+            graphics.fill(trackX - 1, trackY - 1, trackX + trackW + 1, trackY + trackH + 1, 0x6600FF55);
+            graphics.fill(trackX, trackY, trackX + trackW, trackY + trackH, 0xFF02160C);
+            int fillW = (int) (trackW * smoothReviveProgress);
+            if (fillW > 0) {
+                graphics.fill(trackX, trackY, trackX + fillW, trackY + trackH, 0xFF00FF55);
+                graphics.fill(trackX + Math.max(0, fillW - 3), trackY, trackX + fillW, trackY + trackH, 0xFFFFFFFF);
+            }
         }
 
         // Bottom Player Heads Bar

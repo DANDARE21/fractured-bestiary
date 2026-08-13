@@ -26,6 +26,7 @@ public class ClientEventHandler {
     public static int ticksSinceLastSound = 0;
     public static final int MAX_HOLD_TICKS = 30; // 1.5 Seconds hold time
     public static float smoothHoldProgress = 0.0f;
+    private static float smoothReviveProgress = 0.0f;
 
     @SubscribeEvent
     public static void onPlaySound(PlaySoundEvent event) {
@@ -135,50 +136,93 @@ public class ClientEventHandler {
             // Render OP Active Sequence Monitor HUD Overlay
             ClientOpMonitorData.renderHudOverlay(guiGraphics);
 
+            // Smoothly interpolate revive progress for UI
+            float targetProg = ClientDownedData.getReviveProgress();
+            if (Math.abs(smoothReviveProgress - targetProg) > 0.0001f) {
+                smoothReviveProgress += (targetProg - smoothReviveProgress) * 0.2f;
+                if (targetProg == 0.0f && smoothReviveProgress < 0.005f) {
+                    smoothReviveProgress = 0.0f;
+                }
+            }
+
             // Render Downed & Revive HUD Overlay
             if (ClientDownedData.isDowned() && mc.player != null) {
                 int screenWidth = mc.getWindow().getGuiScaledWidth();
                 int screenHeight = mc.getWindow().getGuiScaledHeight();
 
+                boolean beingRevived = smoothReviveProgress > 0.001f;
                 int boxW = 240;
-                int boxH = 45;
+                int boxH = beingRevived ? 62 : 45;
                 int boxX = (screenWidth - boxW) / 2;
-                int boxY = screenHeight - 80;
+                int boxY = screenHeight - (beingRevived ? 95 : 80);
 
-                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xEE1A0505);
+                // 1. Dark Base Panel Fill
+                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xEE140505);
+
+                // 2. Cyberpunk Borders & Content
                 guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + 1, 0xFFFF2222);
                 guiGraphics.fill(boxX, boxY + boxH - 1, boxX + boxW, boxY + boxH, 0xFFFF2222);
                 guiGraphics.fill(boxX, boxY, boxX + 1, boxY + boxH, 0xFFFF2222);
                 guiGraphics.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + boxH, 0xFFFF2222);
 
-                guiGraphics.drawCenteredString(mc.font, "⚠️ YOU ARE DOWNED!", screenWidth / 2, boxY + 8, 0xFFFF3333);
+                guiGraphics.drawCenteredString(mc.font, "CRITICAL: YOU ARE DOWNED!", screenWidth / 2, boxY + 8, 0xFFFF3333);
                 guiGraphics.drawCenteredString(mc.font, "Wait for a teammate to stand nearby & hold RIGHT CLICK to revive", screenWidth / 2, boxY + 22, 0xFFCCCCCC);
 
-                float prog = ClientDownedData.getReviveProgress();
-                if (prog > 0.0f) {
-                    int pW = (int) ((boxW - 16) * prog);
-                    guiGraphics.fill(boxX + 8, boxY + boxH - 8, boxX + 8 + pW, boxY + boxH - 4, 0xFF00FF55);
+                if (beingRevived) {
+                    String statusText = String.format(java.util.Locale.US, "BEING REVIVED  //  %d%%", (int)(smoothReviveProgress * 100));
+                    guiGraphics.drawCenteredString(mc.font, Component.literal(statusText).withStyle(net.minecraft.ChatFormatting.BOLD), screenWidth / 2, boxY + 36, 0xFF00FF55);
+
+                    int trackX = boxX + 10;
+                    int trackY = boxY + boxH - 10;
+                    int trackW = boxW - 20;
+                    int trackH = 5;
+
+                    guiGraphics.fill(trackX - 1, trackY - 1, trackX + trackW + 1, trackY + trackH + 1, 0x6600FF55);
+                    guiGraphics.fill(trackX, trackY, trackX + trackW, trackY + trackH, 0xFF02160C);
+                    int fillW = (int) (trackW * smoothReviveProgress);
+                    if (fillW > 0) {
+                        guiGraphics.fill(trackX, trackY, trackX + fillW, trackY + trackH, 0xFF00FF55);
+                        guiGraphics.fill(trackX + Math.max(0, fillW - 3), trackY, trackX + fillW, trackY + trackH, 0xFFFFFFFF);
+                    }
                 }
-            } else if (ClientDownedData.isRevivingOther() && mc.player != null) {
+            } else if (ClientDownedData.isRevivingOther() && mc.player != null && smoothReviveProgress > 0.001f) {
                 int screenWidth = mc.getWindow().getGuiScaledWidth();
                 int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-                int boxW = 200;
-                int boxH = 35;
+                int boxW = 220;
+                int boxH = 44;
                 int boxX = (screenWidth - boxW) / 2;
-                int boxY = screenHeight - 75;
+                int boxY = screenHeight - 82;
 
+                // 1. Dark Base Panel Fill
                 guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xEE051A0B);
-                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + 1, 0xFF00FF55);
-                guiGraphics.fill(boxX, boxY + boxH - 1, boxX + boxW, boxY + boxH, 0xFF00FF55);
-                guiGraphics.fill(boxX, boxY, boxX + 1, boxY + boxH, 0xFF00FF55);
-                guiGraphics.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + boxH, 0xFF00FF55);
 
-                float prog = ClientDownedData.getReviveProgress();
-                guiGraphics.drawCenteredString(mc.font, "✨ REVIVING TEAMMATE (" + (int)(prog * 100) + "%)", screenWidth / 2, boxY + 8, 0xFF00FF55);
+                // 2. Cyberpunk Borders & Corner Cutouts
+                guiGraphics.fill(boxX, boxY, boxX + boxW, boxY + 1, 0xFF00FF66);
+                guiGraphics.fill(boxX, boxY + boxH - 1, boxX + boxW, boxY + boxH, 0xFF00FF66);
+                guiGraphics.fill(boxX, boxY, boxX + 1, boxY + boxH, 0xFF00FF66);
+                guiGraphics.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + boxH, 0xFF00FF66);
 
-                int pW = (int) ((boxW - 16) * prog);
-                guiGraphics.fill(boxX + 8, boxY + boxH - 8, boxX + 8 + pW, boxY + boxH - 4, 0xFF00FF55);
+                guiGraphics.fill(boxX + 2, boxY + 2, boxX + 6, boxY + 3, 0xFF00FF66);
+                guiGraphics.fill(boxX + 2, boxY + 2, boxX + 3, boxY + 6, 0xFF00FF66);
+                guiGraphics.fill(boxX + boxW - 6, boxY + 2, boxX + boxW - 2, boxY + 3, 0xFF00FF66);
+                guiGraphics.fill(boxX + boxW - 3, boxY + 2, boxX + boxW - 2, boxY + 6, 0xFF00FF66);
+
+                String text = String.format(java.util.Locale.US, "REVIVING TEAMMATE  //  %d%%", (int)(smoothReviveProgress * 100));
+                guiGraphics.drawCenteredString(mc.font, Component.literal(text).withStyle(net.minecraft.ChatFormatting.BOLD), screenWidth / 2, boxY + 8, 0xFF00FF66);
+
+                int trackX = boxX + 10;
+                int trackY = boxY + boxH - 14;
+                int trackW = boxW - 20;
+                int trackH = 6;
+
+                guiGraphics.fill(trackX - 1, trackY - 1, trackX + trackW + 1, trackY + trackH + 1, 0x6600FF66);
+                guiGraphics.fill(trackX, trackY, trackX + trackW, trackY + trackH, 0xFF02160C);
+                int fillW = (int) (trackW * smoothReviveProgress);
+                if (fillW > 0) {
+                    guiGraphics.fill(trackX, trackY, trackX + fillW, trackY + trackH, 0xFF00FF66);
+                    guiGraphics.fill(trackX + Math.max(0, fillW - 3), trackY, trackX + fillW, trackY + trackH, 0xFFFFFFFF);
+                }
             }
 
             // Render Waiting Room HUD Overlay
@@ -214,7 +258,7 @@ public class ClientEventHandler {
                         ? Component
                                 .translatable("gui.fracturedutils.waiting_room.starting_in", remaining / 60, remaining % 60)
                                 .getString()
-                        : String.format("⏱ %02d:%02d", ClientWaitingRoomData.getElapsedSeconds() / 60,
+                        : String.format("%02d:%02d", ClientWaitingRoomData.getElapsedSeconds() / 60,
                                 ClientWaitingRoomData.getElapsedSeconds() % 60);
 
                 Component statsText = Component

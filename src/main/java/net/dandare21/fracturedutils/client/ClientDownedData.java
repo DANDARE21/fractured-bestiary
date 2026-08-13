@@ -39,7 +39,7 @@ public class ClientDownedData {
     }
 
     public static boolean isRevivingOther() {
-        return revivingOther;
+        return revivingOther && reviveProgress > 0.0f;
     }
 
     public static float getReviveProgress() {

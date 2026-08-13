@@ -229,7 +229,7 @@ public class WaitingRoomScreen extends Screen {
         int timerBoxWidth = 90;
         int timerBoxX = (this.width - timerBoxWidth) / 2;
         drawBorderBox(guiGraphics, timerBoxX, 6, timerBoxWidth, 24, timerColor, 0xFF050B10);
-        guiGraphics.drawCenteredString(this.font, Component.literal("⏱ " + timeStr).withStyle(ChatFormatting.BOLD), timerBoxX + (timerBoxWidth / 2), 14, timerColor);
+        guiGraphics.drawCenteredString(this.font, Component.literal(timeStr).withStyle(ChatFormatting.BOLD), timerBoxX + (timerBoxWidth / 2), 14, timerColor);
     }
 
     private void drawLeftPanel(GuiGraphics guiGraphics, int x, int y, int width, int height) {

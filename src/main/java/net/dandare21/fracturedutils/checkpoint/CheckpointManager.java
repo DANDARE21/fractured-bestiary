@@ -33,6 +33,7 @@ public class CheckpointManager {
     private final Set<UUID> downedPlayers = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final Map<UUID, Integer> reviveProgress = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> reviverMap = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastReviveAttemptTick = new ConcurrentHashMap<>();
 
     private int teamWipeTimerTicks = -1;
     private List<ServerPlayer> pendingWipePlayers = new ArrayList<>();
@@ -92,7 +93,7 @@ public class CheckpointManager {
 
             // Notify client HUD and sync to all clients
             ModMessages.sendToAllPlayers(new S2CSyncDownedPacket(player.getUUID(), true, false, 0.0f));
-            player.sendSystemMessage(Component.literal("⚠️ YOU ARE DOWNED! Wait for a teammate to revive you.").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+            player.sendSystemMessage(Component.literal("CRITICAL: YOU ARE DOWNED! Wait for a teammate to revive you.").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
         }
     }
 
@@ -101,7 +102,15 @@ public class CheckpointManager {
         UUID uuid = player.getUUID();
         downedPlayers.remove(uuid);
         reviveProgress.remove(uuid);
-        reviverMap.remove(uuid);
+        UUID reviverUUID = reviverMap.remove(uuid);
+        lastReviveAttemptTick.remove(uuid);
+
+        if (reviverUUID != null && player.getServer() != null) {
+            ServerPlayer reviver = player.getServer().getPlayerList().getPlayer(reviverUUID);
+            if (reviver != null) {
+                ModMessages.sendToPlayer(new S2CSyncDownedPacket(reviverUUID, false, false, 0.0f), reviver);
+            }
+        }
 
         player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
         player.removeEffect(MobEffects.JUMP);
@@ -113,7 +122,7 @@ public class CheckpointManager {
         }
 
         ModMessages.sendToAllPlayers(new S2CSyncDownedPacket(player.getUUID(), false, false, 0.0f));
-        player.sendSystemMessage(Component.literal("✨ YOU WERE REVIVED!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("REVIVED: SYSTEMS RESTORED!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
     }
 
     public void recordReviveAttempt(ServerPlayer reviver, ServerPlayer target) {
@@ -124,6 +133,8 @@ public class CheckpointManager {
         UUID reviverUUID = reviver.getUUID();
 
         reviverMap.put(targetUUID, reviverUUID);
+        lastReviveAttemptTick.put(targetUUID, (long) reviver.server.getTickCount());
+
         int current = reviveProgress.getOrDefault(targetUUID, 0) + 1;
         reviveProgress.put(targetUUID, current);
 
@@ -134,6 +145,7 @@ public class CheckpointManager {
         if (current >= 60) {
             revivePlayer(target);
             ModMessages.sendToAllPlayers(new S2CSyncDownedPacket(reviverUUID, false, false, 0.0f));
+            lastReviveAttemptTick.remove(targetUUID);
         }
     }
 
@@ -158,6 +170,7 @@ public class CheckpointManager {
                 downedPlayers.clear();
                 reviveProgress.clear();
                 reviverMap.clear();
+                lastReviveAttemptTick.clear();
                 pendingWipePlayers.clear();
             }
             return;
@@ -205,34 +218,39 @@ public class CheckpointManager {
             return;
         }
 
-        // Decay revive progress if reviver stepped away
+        // Decay revive progress if reviver stepped away or stopped holding right click
+        long currentTick = server.getTickCount();
         for (UUID targetUUID : new ArrayList<>(reviveProgress.keySet())) {
             UUID reviverUUID = reviverMap.get(targetUUID);
             ServerPlayer target = server.getPlayerList().getPlayer(targetUUID);
             ServerPlayer reviver = reviverUUID != null ? server.getPlayerList().getPlayer(reviverUUID) : null;
+            long lastAttempt = lastReviveAttemptTick.getOrDefault(targetUUID, 0L);
 
             boolean activelyReviving = false;
             if (target != null && reviver != null && isPlayerDowned(targetUUID) && !isPlayerDowned(reviverUUID)) {
-                if (reviver.distanceToSqr(target) <= 9.0) { // within 3 blocks
+                if (reviver.distanceToSqr(target) <= 9.0 && (currentTick - lastAttempt <= 5)) { // within 3 blocks and right clicking recently
                     activelyReviving = true;
                 }
             }
 
             if (!activelyReviving) {
+                // Inform reviver that reviving is inactive
+                if (reviver != null) {
+                    ModMessages.sendToPlayer(new S2CSyncDownedPacket(reviverUUID, false, false, 0.0f), reviver);
+                }
+
                 int p = reviveProgress.getOrDefault(targetUUID, 0);
                 if (p > 0) {
                     p = Math.max(0, p - 2);
                     reviveProgress.put(targetUUID, p);
+                    float prog = p / 60.0f;
                     if (target != null) {
-                        float prog = p / 60.0f;
                         ModMessages.sendToPlayer(new S2CSyncDownedPacket(targetUUID, true, false, prog), target);
-                    }
-                    if (reviver != null && isPlayerDowned(reviver.getUUID())) {
-                        ModMessages.sendToPlayer(new S2CSyncDownedPacket(reviver.getUUID(), true, false, 0.0f), reviver);
                     }
                 } else {
                     reviveProgress.remove(targetUUID);
                     reviverMap.remove(targetUUID);
+                    lastReviveAttemptTick.remove(targetUUID);
                 }
             }
         }
