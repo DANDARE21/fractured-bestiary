@@ -68,6 +68,7 @@ public class ClientEventHandler {
         if (event.phase != TickEvent.Phase.END)
             return;
 
+        net.dandare21.fracturedutils.client.gui.DialogHudOverlay.tick();
         ClientCutsceneHandler.getInstance().onClientTick();
 
         Minecraft mc = Minecraft.getInstance();
@@ -136,8 +137,22 @@ public class ClientEventHandler {
     @SubscribeEvent
     public static void onRenderHand(net.minecraftforge.client.event.RenderHandEvent event) {
         Minecraft mc = Minecraft.getInstance();
-        if (ClientDownedData.isDowned() || mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen || mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen) {
+        if (ClientDownedData.isDowned() || net.dandare21.fracturedutils.client.camera.CustomCameraManager.isActive() || mc.screen instanceof net.dandare21.fracturedutils.client.gui.DownedSpectateScreen || mc.screen instanceof net.dandare21.fracturedutils.client.gui.TeamWipeScreen) {
             event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onMovementInput(net.minecraftforge.client.event.MovementInputUpdateEvent event) {
+        if (net.dandare21.fracturedutils.client.camera.CustomCameraManager.isActive()) {
+            event.getInput().forwardImpulse = 0.0F;
+            event.getInput().leftImpulse = 0.0F;
+            event.getInput().up = false;
+            event.getInput().down = false;
+            event.getInput().left = false;
+            event.getInput().right = false;
+            event.getInput().jumping = false;
+            event.getInput().shiftKeyDown = false;
         }
     }
 
@@ -352,12 +367,35 @@ public class ClientEventHandler {
                 }
             }
         }
+        net.dandare21.fracturedutils.client.gui.DialogHudOverlay.render(event.getGuiGraphics());
     }
 
     @SubscribeEvent
     public static void onInteraction(net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
         if (ClientDownedData.isDowned()) {
             event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onDialogKeyInput(net.minecraftforge.client.event.InputEvent.Key event) {
+        if (net.dandare21.fracturedutils.client.gui.DialogHudOverlay.isActive() && event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+            int key = event.getKey();
+            int scanCode = event.getScanCode();
+
+            if (ModKeyBindings.DIALOG_ADVANCE_KEY.matches(key, scanCode)) {
+                if (net.dandare21.fracturedutils.client.gui.DialogHudOverlay.handleUserInput()) {
+                    Minecraft mc = Minecraft.getInstance();
+                    if (mc.options != null) {
+                        if (mc.options.keyInventory != null && mc.options.keyInventory.matches(key, scanCode)) {
+                            while (mc.options.keyInventory.consumeClick()) {}
+                        }
+                        if (mc.options.keyJump != null && mc.options.keyJump.matches(key, scanCode)) {
+                            while (mc.options.keyJump.consumeClick()) {}
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -377,6 +415,16 @@ public class ClientEventHandler {
         }
     }
 
+    @SubscribeEvent
+    public static void onClientLoggingOut(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        net.dandare21.fracturedutils.client.gui.DialogHudOverlay.clearActiveDialog();
+    }
+
+    @SubscribeEvent
+    public static void onClientLoggingIn(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
+        net.dandare21.fracturedutils.client.gui.DialogHudOverlay.clearActiveDialog();
+    }
+
     @Mod.EventBusSubscriber(modid = FracturedUtils.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static class ModBusClientEvents {
         @SubscribeEvent
@@ -384,6 +432,7 @@ public class ClientEventHandler {
             event.register(ModKeyBindings.WAITING_ROOM_KEY);
             event.register(ModKeyBindings.SKIP_CUTSCENE_KEY);
             event.register(ModKeyBindings.OPERATOR_RESUME_KEY);
+            event.register(ModKeyBindings.DIALOG_ADVANCE_KEY);
         }
     }
 }

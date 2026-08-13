@@ -1,0 +1,50 @@
+{
+  "dialog.blip_default": {
+    "subtitle": "Dialog Blip",
+    "sounds": [
+      "fractured_utils:dialog/blip_default"
+    ]
+  },
+  "dialog.blip_low": {
+    "subtitle": "Dialog Blip (Low)",
+    "sounds": [
+      "fractured_utils:dialog/blip_low"
+    ]
+  },
+  "dialog.blip_high": {
+    "subtitle": "Dialog Blip (High)",
+    "sounds": [
+      "fractured_utils:dialog/blip_high"
+    ]
+  },
+  "dialog.blip_sans": {
+    "subtitle": "Sans Voice",
+    "sounds": [
+      "fractured_utils:dialog/blip_sans"
+    ]
+  },
+  "dialog.blip_papyrus": {
+    "subtitle": "Papyrus Voice",
+    "sounds": [
+      "fractured_utils:dialog/blip_papyrus"
+    ]
+  },
+  "dialog.blip_robot": {
+    "subtitle": "Robot Voice",
+    "sounds": [
+      "fractured_utils:dialog/blip_robot"
+    ]
+  },
+  "dialog.blip_typing": {
+    "subtitle": "Typewriter Key",
+    "sounds": [
+      "fractured_utils:dialog/blip_typing"
+    ]
+  },
+  "dialog.blip_monster": {
+    "subtitle": "Monster Voice",
+    "sounds": [
+      "fractured_utils:dialog/blip_monster"
+    ]
+  }
+}

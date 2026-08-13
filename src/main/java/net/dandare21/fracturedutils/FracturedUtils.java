@@ -24,6 +24,7 @@ public class FracturedUtils
         IEventBus modEventBus = context.getModEventBus();
 
         net.dandare21.fracturedutils.particle.ModParticles.register(modEventBus);
+        net.dandare21.fracturedutils.sound.ModSounds.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::addCreative);

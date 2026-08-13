@@ -22,6 +22,15 @@ import net.dandare21.fracturedutils.network.packet.S2CSyncSequenceTelemetryPacke
 import net.dandare21.fracturedutils.network.packet.S2CSyncPingsPacket;
 import net.dandare21.fracturedutils.network.packet.S2CSyncDownedPacket;
 import net.dandare21.fracturedutils.network.packet.S2CTeamWipePacket;
+import net.dandare21.fracturedutils.network.packet.C2SRequestOpenDialogUiPacket;
+import net.dandare21.fracturedutils.network.packet.S2CSendDialogSequenceDataPacket;
+import net.dandare21.fracturedutils.network.packet.C2SSaveDialogSequencePacket;
+import net.dandare21.fracturedutils.network.packet.C2SDeleteDialogSequencePacket;
+import net.dandare21.fracturedutils.network.packet.C2SStartDialogSequencePacket;
+import net.dandare21.fracturedutils.network.packet.S2CDialogDisplayPacket;
+import net.dandare21.fracturedutils.network.packet.C2SDialogAdvancePacket;
+import net.dandare21.fracturedutils.network.packet.S2CDialogReadinessPacket;
+import net.dandare21.fracturedutils.network.packet.S2CDialogClearPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -172,6 +181,60 @@ public class ModMessages {
                 .encoder(S2CTeamWipePacket::encode)
                 .consumerMainThread(S2CTeamWipePacket::handle)
                 .add();
+
+        net.messageBuilder(C2SRequestOpenDialogUiPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SRequestOpenDialogUiPacket::new)
+                .encoder(C2SRequestOpenDialogUiPacket::encode)
+                .consumerMainThread(C2SRequestOpenDialogUiPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CSendDialogSequenceDataPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CSendDialogSequenceDataPacket::new)
+                .encoder(S2CSendDialogSequenceDataPacket::encode)
+                .consumerMainThread(S2CSendDialogSequenceDataPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SSaveDialogSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SSaveDialogSequencePacket::new)
+                .encoder(C2SSaveDialogSequencePacket::encode)
+                .consumerMainThread(C2SSaveDialogSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(C2SDeleteDialogSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SDeleteDialogSequencePacket::new)
+                .encoder(C2SDeleteDialogSequencePacket::encode)
+                .consumerMainThread(C2SDeleteDialogSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(C2SStartDialogSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SStartDialogSequencePacket::new)
+                .encoder(C2SStartDialogSequencePacket::encode)
+                .consumerMainThread(C2SStartDialogSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(S2CDialogDisplayPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CDialogDisplayPacket::new)
+                .encoder(S2CDialogDisplayPacket::encode)
+                .consumerMainThread(S2CDialogDisplayPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SDialogAdvancePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SDialogAdvancePacket::new)
+                .encoder(C2SDialogAdvancePacket::encode)
+                .consumerMainThread(C2SDialogAdvancePacket::handle)
+                .add();
+
+        net.messageBuilder(S2CDialogReadinessPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CDialogReadinessPacket::new)
+                .encoder(S2CDialogReadinessPacket::encode)
+                .consumerMainThread(S2CDialogReadinessPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CDialogClearPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CDialogClearPacket::new)
+                .encoder(S2CDialogClearPacket::encode)
+                .consumerMainThread(S2CDialogClearPacket::handle)
+                .add();
     }
 
     public static <MSG> void sendToServer(MSG message) {
@@ -180,6 +243,16 @@ public class ModMessages {
 
     public static <MSG> void sendToPlayer(MSG message, ServerPlayer player) {
         INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), message);
+    }
+
+    public static <MSG> void sendToPlayers(MSG message, java.util.List<ServerPlayer> players) {
+        if (players != null) {
+            for (ServerPlayer player : players) {
+                if (player != null) {
+                    sendToPlayer(message, player);
+                }
+            }
+        }
     }
 
     public static <MSG> void sendToAllPlayers(MSG message) {

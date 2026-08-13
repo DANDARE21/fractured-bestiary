@@ -10,6 +10,7 @@ public class ModKeyBindings {
     public static final String KEY_WAITING_ROOM = "key.fractured_utils.waiting_room";
     public static final String KEY_SKIP_CUTSCENE = "key.fractured_utils.skip_cutscene";
     public static final String KEY_OPERATOR_RESUME = "key.fractured_utils.operator_resume";
+    public static final String KEY_DIALOG_ADVANCE = "key.fractured_utils.dialog_advance";
 
     public static final KeyMapping WAITING_ROOM_KEY = new KeyMapping(
             KEY_WAITING_ROOM,
@@ -32,6 +33,14 @@ public class ModKeyBindings {
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_BACKSLASH,
+            KEY_CATEGORY_FRACTURED_UTILS
+    );
+
+    public static final KeyMapping DIALOG_ADVANCE_KEY = new KeyMapping(
+            KEY_DIALOG_ADVANCE,
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_E, // Key E by default!
             KEY_CATEGORY_FRACTURED_UTILS
     );
 }
