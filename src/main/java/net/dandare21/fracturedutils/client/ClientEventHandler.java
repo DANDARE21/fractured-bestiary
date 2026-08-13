@@ -42,6 +42,22 @@ public class ClientEventHandler {
         }
     }
 
+    private static final net.minecraft.resources.ResourceLocation ICONS_FONT = new net.minecraft.resources.ResourceLocation(FracturedUtils.MOD_ID, "icons");
+
+    @SubscribeEvent
+    public static void onRenderNameTag(net.minecraftforge.client.event.RenderNameTagEvent event) {
+        if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
+            if (ClientDownedData.isPlayerDowned(player.getUUID())) {
+                event.setResult(net.minecraftforge.eventbus.api.Event.Result.ALLOW);
+                Component original = event.getContent();
+                Component downedIcon = Component.literal("\uE001")
+                        .withStyle(style -> style.withFont(ICONS_FONT).withColor(0xFFFFFFFF));
+                Component space = Component.literal(" ");
+                event.setContent(Component.empty().append(downedIcon).append(space).append(original.copy().withStyle(net.minecraft.ChatFormatting.WHITE)));
+            }
+        }
+    }
+
     @SubscribeEvent
     public static void onClientChat(ClientChatReceivedEvent event) {
         ClientWaitingRoomData.addChatMessage(event.getMessage());

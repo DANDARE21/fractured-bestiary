@@ -1,0 +1,13 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "fractured_utils:gui/downed_icon.png",
+      "ascent": 7,
+      "height": 9,
+      "chars": [
+        "\uE001"
+      ]
+    }
+  ]
+}

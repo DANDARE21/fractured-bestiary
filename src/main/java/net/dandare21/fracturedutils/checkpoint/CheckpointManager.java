@@ -196,18 +196,10 @@ public class CheckpointManager {
                 if (player.getHealth() < 1.0f && player.isAlive()) {
                     player.setHealth(1.0f);
                 }
+                // Maintain downed effects and health lock
                 if (!player.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
                     player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 999999, 255, false, false, false));
                     player.addEffect(new MobEffectInstance(MobEffects.JUMP, 999999, 128, false, false, false));
-                }
-
-                // Spawn static downed marker particle 2.2m above head
-                if (player.serverLevel() != null && player.tickCount % 2 == 0) {
-                    player.serverLevel().sendParticles(
-                            net.dandare21.fracturedutils.particle.ModParticles.DOWNED_MARKER.get(),
-                            player.getX(), player.getY() + 2.2, player.getZ(),
-                            1, 0.0, 0.0, 0.0, 0.0
-                    );
                 }
             }
         }
