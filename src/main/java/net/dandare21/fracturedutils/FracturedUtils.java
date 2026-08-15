@@ -57,6 +57,7 @@ public class FracturedUtils
         {
             event.enqueueWork(() -> {
                 net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.init();
+                net.dandare21.fracturedutils.sound.DialogResourcePackGenerator.generateIfMissing();
             });
         }
 

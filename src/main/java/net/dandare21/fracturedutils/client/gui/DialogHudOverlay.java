@@ -40,7 +40,7 @@ public class DialogHudOverlay {
     // Multiplayer consensus player readiness state
     private static final List<UUID> readyPlayerUUIDs = new ArrayList<>();
 
-    public static void setActiveDialog(String speaker, String text, int delayTicks, int charSpeedTicks, String letterSound, float letterSoundPitchMin, float letterSoundPitchMax, boolean waitForInput, boolean useCamera, double cameraX, double cameraY, double cameraZ, float cameraYaw, float cameraPitch) {
+    public static void setActiveDialog(String speaker, String text, int delayTicks, int charSpeedTicks, String letterSound, float letterSoundPitchMin, float letterSoundPitchMax, boolean waitForInput, boolean useCamera, double cameraX, double cameraY, double cameraZ, float cameraYaw, float cameraPitch, double cameraFov) {
         activeSpeaker = speaker != null ? speaker : "";
         activeText = text != null ? text : "";
         DialogHudOverlay.delayTicks = Math.max(1, delayTicks);
@@ -64,6 +64,7 @@ public class DialogHudOverlay {
 
         if (useCamera) {
             net.dandare21.fracturedutils.client.camera.CustomCameraManager.setCustomCamera(cameraX, cameraY, cameraZ, cameraYaw, cameraPitch, true);
+            net.dandare21.fracturedutils.client.camera.CustomCameraManager.setCustomFov(cameraFov);
         } else {
             net.dandare21.fracturedutils.client.camera.CustomCameraManager.clearCustomCamera();
         }
@@ -89,7 +90,7 @@ public class DialogHudOverlay {
     }
 
     public static boolean handleUserInput() {
-        if (!active) return false;
+        if (!active || !waitForInput) return false;
 
         // 1. First Press: If text is still revealing, reveal all text immediately!
         if (revealedCharCount < totalCharCount) {
@@ -137,15 +138,11 @@ public class DialogHudOverlay {
     private static void playLetterSound() {
         if (letterSound != null && !letterSound.isEmpty()) {
             try {
-                Minecraft mc = Minecraft.getInstance();
-                float minP = Math.min(letterSoundPitchMin, letterSoundPitchMax);
-                float maxP = Math.max(letterSoundPitchMin, letterSoundPitchMax);
-                float pitch = minP + (float) Math.random() * (maxP - minP);
+                float pitch = letterSoundPitchMin + (float) Math.random() * (Math.max(letterSoundPitchMin, letterSoundPitchMax) - Math.min(letterSoundPitchMin, letterSoundPitchMax));
                 pitch = Math.max(0.1f, Math.min(2.0f, pitch));
-
                 SoundEvent soundEvent = ModSounds.resolveSound(letterSound);
                 if (soundEvent != null) {
-                    mc.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, pitch));
+                    Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, pitch));
                 }
             } catch (Exception ignored) {
             }
@@ -165,11 +162,11 @@ public class DialogHudOverlay {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        // Centered RPG Dialog Box Dimensions
-        int boxW = 340;
-        int boxH = 68;
+        // Sleek RPG Dialog Box Dimensions (Anchored to screen center)
+        int boxW = 330;
+        int boxH = 58;
         int boxX = (screenWidth - boxW) / 2;
-        int boxY = (screenHeight - boxH) / 2 + 35;
+        int boxY = (screenHeight / 2) + 40;
 
         int alphaBits = 0xF5000000;
 

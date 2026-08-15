@@ -164,6 +164,9 @@ public class ClientEventHandler {
             Minecraft mc = Minecraft.getInstance();
             GuiGraphics guiGraphics = event.getGuiGraphics();
 
+            // Render Objective HUD Overlay in Top-Left
+            net.dandare21.fracturedutils.client.gui.ObjectiveHudOverlay.render(guiGraphics);
+
             // Render OP Active Sequence Monitor HUD Overlay
             ClientOpMonitorData.renderHudOverlay(guiGraphics);
 
@@ -383,16 +386,22 @@ public class ClientEventHandler {
             int key = event.getKey();
             int scanCode = event.getScanCode();
 
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.options != null && mc.options.keyInventory != null) {
+                if (mc.options.keyInventory.matches(key, scanCode)) {
+                    mc.options.keyInventory.setDown(false);
+                    while (mc.options.keyInventory.consumeClick()) {}
+                }
+            }
+
             if (ModKeyBindings.DIALOG_ADVANCE_KEY.matches(key, scanCode)) {
-                if (net.dandare21.fracturedutils.client.gui.DialogHudOverlay.handleUserInput()) {
-                    Minecraft mc = Minecraft.getInstance();
-                    if (mc.options != null) {
-                        if (mc.options.keyInventory != null && mc.options.keyInventory.matches(key, scanCode)) {
-                            while (mc.options.keyInventory.consumeClick()) {}
-                        }
-                        if (mc.options.keyJump != null && mc.options.keyJump.matches(key, scanCode)) {
-                            while (mc.options.keyJump.consumeClick()) {}
-                        }
+                net.dandare21.fracturedutils.client.gui.DialogHudOverlay.handleUserInput();
+                if (mc.options != null) {
+                    if (mc.options.keyInventory != null && mc.options.keyInventory.matches(key, scanCode)) {
+                        while (mc.options.keyInventory.consumeClick()) {}
+                    }
+                    if (mc.options.keyJump != null && mc.options.keyJump.matches(key, scanCode)) {
+                        while (mc.options.keyJump.consumeClick()) {}
                     }
                 }
             }
@@ -403,6 +412,13 @@ public class ClientEventHandler {
     public static void onComputeCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
         if (net.dandare21.fracturedutils.client.camera.CustomCameraManager.isActive()) {
             net.dandare21.fracturedutils.client.camera.CameraUtils.applyCameraOverride(event.getCamera(), event);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onComputeFov(net.minecraftforge.client.event.ViewportEvent.ComputeFov event) {
+        if (net.dandare21.fracturedutils.client.camera.CustomCameraManager.isFovActive()) {
+            event.setFOV(net.dandare21.fracturedutils.client.camera.CustomCameraManager.getCustomFov());
         }
     }
 

@@ -374,6 +374,8 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
         private int getActionColor(String type) {
             return switch (type) {
                 case "checkpoint" -> 0xFFFF2255;
+                case "new_objective" -> 0xFF00E5FF;
+                case "end_objective" -> 0xFFFF5555;
                 case "wait_until", "delay", "await_trigger" -> 0xFFFFAA00;
                 case "fork_sequence" -> 0xFF55FF55;
                 case "run_sequence" -> 0xFF00E5FF;
@@ -424,6 +426,11 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 return "Pause parent sequence node";
             } else if (action instanceof ResumeParentAction) {
                 return "Wake up parent sequence node";
+            } else if (action instanceof NewObjectiveAction noa) {
+                String waitTag = noa.isShowActiveWait() ? " [Wait On]" : "";
+                return "📋 New Objective: \"" + noa.getName() + "\"" + waitTag;
+            } else if (action instanceof EndObjectiveAction) {
+                return "🏁 End Active Objective";
             }
             return "";
         }

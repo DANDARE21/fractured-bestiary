@@ -31,6 +31,7 @@ import net.dandare21.fracturedutils.network.packet.S2CDialogDisplayPacket;
 import net.dandare21.fracturedutils.network.packet.C2SDialogAdvancePacket;
 import net.dandare21.fracturedutils.network.packet.S2CDialogReadinessPacket;
 import net.dandare21.fracturedutils.network.packet.S2CDialogClearPacket;
+import net.dandare21.fracturedutils.network.packet.S2CSyncObjectivePacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -234,6 +235,12 @@ public class ModMessages {
                 .decoder(S2CDialogClearPacket::new)
                 .encoder(S2CDialogClearPacket::encode)
                 .consumerMainThread(S2CDialogClearPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CSyncObjectivePacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CSyncObjectivePacket::new)
+                .encoder(S2CSyncObjectivePacket::encode)
+                .consumerMainThread(S2CSyncObjectivePacket::handle)
                 .add();
     }
 

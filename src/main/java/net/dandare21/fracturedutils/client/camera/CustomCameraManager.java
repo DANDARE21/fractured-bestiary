@@ -66,6 +66,27 @@ public class CustomCameraManager {
         CustomCameraManager.active = true;
     }
 
+    private static boolean customFovActive = false;
+    private static double customFov = 70.0;
+
+    public static void setCustomFov(double fov) {
+        CustomCameraManager.customFov = fov;
+        CustomCameraManager.customFovActive = true;
+    }
+
+    public static void clearCustomFov() {
+        CustomCameraManager.customFovActive = false;
+        CustomCameraManager.customFov = 70.0;
+    }
+
+    public static boolean isFovActive() {
+        return customFovActive;
+    }
+
+    public static double getCustomFov() {
+        return customFov;
+    }
+
     public static void clearCustomCamera() {
         CustomCameraManager.active = false;
         CustomCameraManager.targetEntity = null;
@@ -73,6 +94,8 @@ public class CustomCameraManager {
         CustomCameraManager.currentSmoothPos = null;
         CustomCameraManager.currentSmoothYaw = Float.NaN;
         CustomCameraManager.currentSmoothPitch = Float.NaN;
+        CustomCameraManager.customFovActive = false;
+        CustomCameraManager.customFov = 70.0;
     }
 
     public static boolean isActive() {

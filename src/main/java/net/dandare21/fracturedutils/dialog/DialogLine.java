@@ -22,6 +22,7 @@ public class DialogLine {
     private double cameraZ;
     private float cameraYaw;
     private float cameraPitch;
+    private double cameraFov;
 
     public DialogLine() {
         this.speaker = "";
@@ -41,9 +42,10 @@ public class DialogLine {
         this.cameraZ = 0.0;
         this.cameraYaw = 0.0f;
         this.cameraPitch = 0.0f;
+        this.cameraFov = 70.0;
     }
 
-    public DialogLine(String speaker, String text, int delayTicks, String sound, float volume, float pitch, int charSpeedTicks, String letterSound, float letterSoundPitchMin, float letterSoundPitchMax, boolean waitForInput, boolean useCamera, double cameraX, double cameraY, double cameraZ, float cameraYaw, float cameraPitch) {
+    public DialogLine(String speaker, String text, int delayTicks, String sound, float volume, float pitch, int charSpeedTicks, String letterSound, float letterSoundPitchMin, float letterSoundPitchMax, boolean waitForInput, boolean useCamera, double cameraX, double cameraY, double cameraZ, float cameraYaw, float cameraPitch, double cameraFov) {
         this.speaker = speaker != null ? speaker : "";
         this.text = text != null ? text : "";
         this.delayTicks = Math.max(1, delayTicks);
@@ -61,6 +63,7 @@ public class DialogLine {
         this.cameraZ = cameraZ;
         this.cameraYaw = cameraYaw;
         this.cameraPitch = cameraPitch;
+        this.cameraFov = cameraFov > 0 ? cameraFov : 70.0;
     }
 
     public String getSpeaker() {
@@ -199,7 +202,15 @@ public class DialogLine {
         this.cameraPitch = cameraPitch;
     }
 
+    public double getCameraFov() {
+        return cameraFov > 0 ? cameraFov : 70.0;
+    }
+
+    public void setCameraFov(double cameraFov) {
+        this.cameraFov = Math.max(10.0, Math.min(140.0, cameraFov));
+    }
+
     public DialogLine copy() {
-        return new DialogLine(this.speaker, this.text, this.delayTicks, this.sound, this.volume, this.pitch, this.charSpeedTicks, this.letterSound, this.letterSoundPitchMin, this.letterSoundPitchMax, this.waitForInput, this.useCamera, this.cameraX, this.cameraY, this.cameraZ, this.cameraYaw, this.cameraPitch);
+        return new DialogLine(this.speaker, this.text, this.delayTicks, this.sound, this.volume, this.pitch, this.charSpeedTicks, this.letterSound, this.letterSoundPitchMin, this.letterSoundPitchMax, this.waitForInput, this.useCamera, this.cameraX, this.cameraY, this.cameraZ, this.cameraYaw, this.cameraPitch, this.cameraFov);
     }
 }

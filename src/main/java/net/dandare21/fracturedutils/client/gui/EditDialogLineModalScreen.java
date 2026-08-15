@@ -10,9 +10,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +35,7 @@ public class EditDialogLineModalScreen extends Screen {
     private EditBox letterPitchMaxBox;
     private CyberpunkDropdown<String> letterSoundDropdown;
     private CyberpunkCheckbox waitForInputCheckbox;
-    private CyberpunkButton cameraBtn;
+    private CyberpunkButton cameraSetupBtn;
 
     public EditDialogLineModalScreen(Screen parentScreen, DialogLine line, Consumer<DialogLine> onSave) {
         super(Component.literal("Edit Dialog Line"));
@@ -177,21 +175,8 @@ public class EditDialogLineModalScreen extends Screen {
         });
         this.addRenderableWidget(testLetterSoundBtn);
 
-        // 7. Undertale Voice Sound Preset Dropdown
-        List<CyberpunkDropdown.DropdownEntry<String>> soundEntries = new ArrayList<>();
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("", Component.literal("Silent (No Letter Sound)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_default", Component.literal("Default Blip (fractured_utils:dialog.blip_default)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_low", Component.literal("Low Pitch Blip (fractured_utils:dialog.blip_low)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_high", Component.literal("High Pitch Blip (fractured_utils:dialog.blip_high)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_sans", Component.literal("Sans Voice (fractured_utils:dialog.blip_sans)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_papyrus", Component.literal("Papyrus Voice (fractured_utils:dialog.blip_papyrus)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_robot", Component.literal("Robot Voice (fractured_utils:dialog.blip_robot)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_typing", Component.literal("Typewriter Key (fractured_utils:dialog.blip_typing)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("fractured_utils:dialog.blip_monster", Component.literal("Monster Voice (fractured_utils:dialog.blip_monster)")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("minecraft:block.dispenser.dispense", Component.literal("Vanilla Dispenser Click")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("minecraft:block.note_block.pling", Component.literal("Vanilla Note Pling")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("minecraft:entity.experience_orb.pickup", Component.literal("Vanilla Experience Orb")));
-        soundEntries.add(new CyberpunkDropdown.DropdownEntry<>("minecraft:gui.button.press", Component.literal("Vanilla Button Press")));
+        // 7. Undertale Voice Sound Preset Dropdown (Dynamically fetched from resourcepacks & sound registry)
+        List<CyberpunkDropdown.DropdownEntry<String>> soundEntries = net.dandare21.fracturedutils.sound.DialogSoundRegistry.getAvailableSoundEntries(line.getLetterSound());
 
         this.letterSoundDropdown = new CyberpunkDropdown<>(panelLeft + 20, dropdownY, panelWidth - 40, 18, Component.literal("Voice Sound Preset"));
         this.letterSoundDropdown.setOptions(soundEntries);
@@ -202,8 +187,17 @@ public class EditDialogLineModalScreen extends Screen {
         });
         this.addRenderableWidget(this.letterSoundDropdown);
 
-        // 8. Footer Save / Cancel / Custom Camera Buttons
+        // 8. Footer Save / Cancel / Custom Camera Setup Buttons
         int btnY = panelTop + panelHeight - 26;
+
+        CyberpunkButton cancelBtn = new CyberpunkButton(panelLeft + 20, btnY, 90, 20, Component.literal("✕ Cancel"), b -> {
+            this.minecraft.setScreen(parentScreen);
+        }, RED_CANCEL, false);
+        this.addRenderableWidget(cancelBtn);
+
+        this.cameraSetupBtn = new CyberpunkButton(panelLeft + 130, btnY, 150, 20, Component.literal("📷 Camera Setup..."), b -> openCameraSetupScreen());
+        this.addRenderableWidget(this.cameraSetupBtn);
+
         CyberpunkButton saveBtn = new CyberpunkButton(panelLeft + panelWidth - 110, btnY, 90, 20, Component.literal("✓ Save"), b -> {
             applyValues();
             if (onSave != null) {
@@ -212,40 +206,19 @@ public class EditDialogLineModalScreen extends Screen {
             this.minecraft.setScreen(parentScreen);
         });
         this.addRenderableWidget(saveBtn);
-
-        this.cameraBtn = new CyberpunkButton(panelLeft + 125, btnY, 140, 20, Component.literal(line.isUseCamera() ? "📷 Camera: Set" : "📷 Set Camera"), b -> toggleCamera());
-        this.addRenderableWidget(this.cameraBtn);
-
-        CyberpunkButton cancelBtn = new CyberpunkButton(panelLeft + 20, btnY, 90, 20, Component.literal("✕ Cancel"), b -> {
-            this.minecraft.setScreen(parentScreen);
-        }, RED_CANCEL, false);
-        this.addRenderableWidget(cancelBtn);
     }
 
-    private void toggleCamera() {
-        Minecraft mc = Minecraft.getInstance();
-        if (!line.isUseCamera()) {
-            if (mc.player != null) {
-                Vec3 eyePos = mc.player.getEyePosition();
-                line.setUseCamera(true);
-                line.setCameraX(eyePos.x);
-                line.setCameraY(eyePos.y);
-                line.setCameraZ(eyePos.z);
-                line.setCameraYaw(mc.player.getYRot());
-                line.setCameraPitch(mc.player.getXRot());
-
-                if (cameraBtn != null) {
-                    cameraBtn.setMessage(Component.literal("📷 Camera: Set"));
-                }
-                mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.get(), 1.4f));
-            }
-        } else {
-            line.setUseCamera(false);
-            if (cameraBtn != null) {
-                cameraBtn.setMessage(Component.literal("📷 Set Camera"));
-            }
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.get(), 0.9f));
-        }
+    private void openCameraSetupScreen() {
+        applyValues();
+        this.minecraft.setScreen(new CameraSetupScreen(this, this.line, updatedLine -> {
+            this.line.setUseCamera(updatedLine.isUseCamera());
+            this.line.setCameraX(updatedLine.getCameraX());
+            this.line.setCameraY(updatedLine.getCameraY());
+            this.line.setCameraZ(updatedLine.getCameraZ());
+            this.line.setCameraYaw(updatedLine.getCameraYaw());
+            this.line.setCameraPitch(updatedLine.getCameraPitch());
+            this.line.setCameraFov(updatedLine.getCameraFov());
+        }));
     }
 
     private void insertFormattingCode(String code) {
@@ -362,9 +335,11 @@ public class EditDialogLineModalScreen extends Screen {
 
         // Custom Camera Status Info Indicator
         if (line.isUseCamera()) {
-            String camText = String.format(java.util.Locale.US, "📷 Cam Pos: X:%.1f Y:%.1f Z:%.1f (Rot: %.0f°, %.0f°)",
-                    line.getCameraX(), line.getCameraY(), line.getCameraZ(), line.getCameraYaw(), line.getCameraPitch());
-            guiGraphics.drawString(this.font, Component.literal(camText), panelLeft + 275, panelTop + panelHeight - 20, 0xFF00E5FF);
+            String camText = String.format(java.util.Locale.US, "📷 Cam: Enabled (X:%.1f Y:%.1f Z:%.1f FOV:%.0f°)",
+                    line.getCameraX(), line.getCameraY(), line.getCameraZ(), line.getCameraFov());
+            guiGraphics.drawString(this.font, Component.literal(camText), panelLeft + 20, panelTop + panelHeight - 44, 0xFF00E5FF);
+        } else {
+            guiGraphics.drawString(this.font, Component.literal("📷 Cam: Disabled (Player Eye View)"), panelLeft + 20, panelTop + panelHeight - 44, 0xAAAAAA);
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);

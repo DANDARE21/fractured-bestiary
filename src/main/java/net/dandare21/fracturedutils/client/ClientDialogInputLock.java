@@ -2,6 +2,7 @@ package net.dandare21.fracturedutils.client;
 
 import net.dandare21.fracturedutils.FracturedUtils;
 import net.dandare21.fracturedutils.client.camera.CustomCameraManager;
+import net.dandare21.fracturedutils.client.gui.DialogHudOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
@@ -13,8 +14,8 @@ import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = FracturedUtils.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class ClientDialogInputLock {
-    private static Float initialYaw = null;
-    private static Float initialPitch = null;
+    private static Float savedPlayerYaw = null;
+    private static Float savedPlayerPitch = null;
 
     public static boolean shouldLockInput() {
         return CustomCameraManager.isActive();
@@ -26,7 +27,18 @@ public class ClientDialogInputLock {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
+        if (DialogHudOverlay.isActive() && mc.options != null && mc.options.keyInventory != null) {
+            mc.options.keyInventory.setDown(false);
+            while (mc.options.keyInventory.consumeClick()) {}
+        }
+
         if (shouldLockInput()) {
+            // Save original player view rotation BEFORE custom camera takes over
+            if (savedPlayerYaw == null) {
+                savedPlayerYaw = mc.player.getYRot();
+                savedPlayerPitch = mc.player.getXRot();
+            }
+
             // 1. Clear attack and use keypresses every tick so player cannot punch or interact when custom camera is active
             if (mc.options != null) {
                 if (mc.options.keyAttack != null) {
@@ -47,20 +59,9 @@ public class ClientDialogInputLock {
                 }
             }
 
-            // 2. Lock player head, body, and view rotation completely
-            float lockYaw;
-            float lockPitch;
-            if (CustomCameraManager.isActive()) {
-                lockYaw = CustomCameraManager.getCustomYaw();
-                lockPitch = CustomCameraManager.getCustomPitch();
-            } else {
-                if (initialYaw == null) {
-                    initialYaw = mc.player.getYRot();
-                    initialPitch = mc.player.getXRot();
-                }
-                lockYaw = initialYaw;
-                lockPitch = initialPitch;
-            }
+            // 2. Keep player entity's rotation anchored to its original pre-camera view orientation
+            float lockYaw = savedPlayerYaw;
+            float lockPitch = savedPlayerPitch;
 
             mc.player.setYRot(lockYaw);
             mc.player.setXRot(lockPitch);
@@ -71,8 +72,19 @@ public class ClientDialogInputLock {
             mc.player.yBodyRot = lockYaw;
             mc.player.yBodyRotO = lockYaw;
         } else {
-            initialYaw = null;
-            initialPitch = null;
+            // Restore saved original player view rotation when custom camera finishes
+            if (savedPlayerYaw != null) {
+                mc.player.setYRot(savedPlayerYaw);
+                mc.player.setXRot(savedPlayerPitch);
+                mc.player.yRotO = savedPlayerYaw;
+                mc.player.xRotO = savedPlayerPitch;
+                mc.player.yHeadRot = savedPlayerYaw;
+                mc.player.yHeadRotO = savedPlayerYaw;
+                mc.player.yBodyRot = savedPlayerYaw;
+                mc.player.yBodyRotO = savedPlayerYaw;
+                savedPlayerYaw = null;
+                savedPlayerPitch = null;
+            }
         }
     }
 

@@ -41,6 +41,17 @@ public class ModSounds {
             SoundEvent soundEvent = ForgeRegistries.SOUND_EVENTS.getValue(loc);
             if (soundEvent != null) return soundEvent;
 
+            // Check alternate namespace variants (fracturedutils vs fractured_utils)
+            if (id.startsWith("fracturedutils:")) {
+                ResourceLocation altLoc = new ResourceLocation("fractured_utils", id.substring(15));
+                SoundEvent altSound = ForgeRegistries.SOUND_EVENTS.getValue(altLoc);
+                if (altSound != null) return altSound;
+            } else if (id.startsWith("fractured_utils:")) {
+                ResourceLocation altLoc = new ResourceLocation("fracturedutils", id.substring(16));
+                SoundEvent altSound = ForgeRegistries.SOUND_EVENTS.getValue(altLoc);
+                if (altSound != null) return altSound;
+            }
+
             return SoundEvent.createVariableRangeEvent(loc);
         } catch (Exception e) {
             return null;

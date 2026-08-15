@@ -138,6 +138,7 @@ public class OrchestratorManager {
                 activeRootSequences.remove(sequence);
             }
         }
+        net.dandare21.fracturedutils.objective.ObjectiveManager.getInstance().tick(server);
         syncActiveSequenceTelemetryToOps(server);
     }
 
@@ -211,6 +212,10 @@ public class OrchestratorManager {
             return "parent";
         } else if (action instanceof ResumeParentAction) {
             return "parent";
+        } else if (action instanceof NewObjectiveAction noa) {
+            return noa.getName() + " (" + noa.getDescription() + ")";
+        } else if (action instanceof EndObjectiveAction) {
+            return "end_objective";
         }
         return "";
     }

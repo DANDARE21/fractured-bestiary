@@ -187,6 +187,10 @@ public class WaitUntilAction implements OrchestratorAction {
         this.targetSelector = (targetSelector != null && !targetSelector.isBlank()) ? targetSelector : "@a";
     }
 
+    public int getRemainingTicks() {
+        return remainingTicks;
+    }
+
     public void trigger() {
         this.triggered = true;
     }

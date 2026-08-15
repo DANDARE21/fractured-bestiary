@@ -25,8 +25,9 @@ public class S2CDialogDisplayPacket {
     private final double cameraZ;
     private final float cameraYaw;
     private final float cameraPitch;
+    private final double cameraFov;
 
-    public S2CDialogDisplayPacket(String speaker, String text, int delayTicks, int charSpeedTicks, String letterSound, float letterSoundPitchMin, float letterSoundPitchMax, boolean waitForInput, boolean useCamera, double cameraX, double cameraY, double cameraZ, float cameraYaw, float cameraPitch) {
+    public S2CDialogDisplayPacket(String speaker, String text, int delayTicks, int charSpeedTicks, String letterSound, float letterSoundPitchMin, float letterSoundPitchMax, boolean waitForInput, boolean useCamera, double cameraX, double cameraY, double cameraZ, float cameraYaw, float cameraPitch, double cameraFov) {
         this.speaker = speaker != null ? speaker : "";
         this.text = text != null ? text : "";
         this.delayTicks = Math.max(1, delayTicks);
@@ -41,6 +42,7 @@ public class S2CDialogDisplayPacket {
         this.cameraZ = cameraZ;
         this.cameraYaw = cameraYaw;
         this.cameraPitch = cameraPitch;
+        this.cameraFov = cameraFov > 0 ? cameraFov : 70.0;
     }
 
     public S2CDialogDisplayPacket(FriendlyByteBuf buf) {
@@ -58,6 +60,7 @@ public class S2CDialogDisplayPacket {
         this.cameraZ = buf.readDouble();
         this.cameraYaw = buf.readFloat();
         this.cameraPitch = buf.readFloat();
+        this.cameraFov = buf.readDouble();
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -75,6 +78,7 @@ public class S2CDialogDisplayPacket {
         buf.writeDouble(cameraZ);
         buf.writeFloat(cameraYaw);
         buf.writeFloat(cameraPitch);
+        buf.writeDouble(cameraFov);
     }
 
     public String getSpeaker() {
@@ -133,12 +137,16 @@ public class S2CDialogDisplayPacket {
         return cameraPitch;
     }
 
+    public double getCameraFov() {
+        return cameraFov;
+    }
+
     public void handle(Supplier<NetworkEvent.Context> ctxSupplier) {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ctx.enqueueWork(() -> {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientDialogHandler.displayDialog(
                     speaker, text, delayTicks, charSpeedTicks, letterSound, letterSoundPitchMin, letterSoundPitchMax, waitForInput,
-                    useCamera, cameraX, cameraY, cameraZ, cameraYaw, cameraPitch
+                    useCamera, cameraX, cameraY, cameraZ, cameraYaw, cameraPitch, cameraFov
             ));
         });
         ctx.setPacketHandled(true);

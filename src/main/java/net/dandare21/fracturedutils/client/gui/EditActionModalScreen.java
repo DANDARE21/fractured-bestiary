@@ -46,6 +46,9 @@ public class EditActionModalScreen extends Screen {
     private CyberpunkCheckbox opsOnlyVisibilityCheckbox;
     private CyberpunkCheckbox areaOpsOnlyCheckbox;
     private CyberpunkCheckbox showRadiusAreaCheckbox;
+    private EditBox nameField;
+    private EditBox descriptionField;
+    private CyberpunkCheckbox showActiveWaitCheckbox;
     private CyberpunkButton setMyPositionButton;
     private CommandSuggestions commandSuggestions;
 
@@ -111,6 +114,8 @@ public class EditActionModalScreen extends Screen {
         List<CyberpunkDropdown.DropdownEntry<String>> actionEntries = new ArrayList<>();
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("command", Component.literal("Command Action"), Component.literal("Execute console command (%player% supported)")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("checkpoint", Component.literal("Checkpoint Action"), Component.literal("Set checkpoint location; teleports team & rewinds sequence on wipe")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("new_objective", Component.literal("New Objective"), Component.literal("Set mission objective text on HUD with optional active wait tracking")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("end_objective", Component.literal("End Objective"), Component.literal("Clear current active objective on HUD")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("wait_until", Component.literal("Wait Until Action"), Component.literal("Pause sequence until condition is met")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("await_trigger", Component.literal("Await Trigger"), Component.literal("Wait for external trigger ID event")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("fork_sequence", Component.literal("Fork Sequence"), Component.literal("Asynchronously start sub-sequence")));
@@ -440,6 +445,36 @@ public class EditActionModalScreen extends Screen {
             this.targetSelectorField.setBordered(false);
             this.targetSelectorField.setValue(defaultTargetSelector != null ? defaultTargetSelector : "@a");
             this.addRenderableWidget(this.targetSelectorField);
+        } else if (actionType.equalsIgnoreCase("new_objective")) {
+            this.commandSuggestions = null;
+            String defaultName = "New Objective";
+            String defaultDesc = "";
+            boolean defaultShowWait = false;
+            if (action instanceof NewObjectiveAction noa) {
+                defaultName = noa.getName();
+                defaultDesc = noa.getDescription();
+                defaultShowWait = noa.isShowActiveWait();
+            }
+
+            int boxH = 18;
+            this.nameField = new EditBox(this.font, left + 25, top + 105, panelWidth - 50, boxH, Component.literal("Name"));
+            this.nameField.setBordered(false);
+            this.nameField.setValue(defaultName);
+            this.addRenderableWidget(this.nameField);
+
+            this.descriptionField = new EditBox(this.font, left + 25, top + 147, panelWidth - 50, boxH, Component.literal("Description"));
+            this.descriptionField.setBordered(false);
+            this.descriptionField.setValue(defaultDesc);
+            this.addRenderableWidget(this.descriptionField);
+
+            this.showActiveWaitCheckbox = new CyberpunkCheckbox(
+                    left + 20, top + 185, panelWidth - 40, 18,
+                    Component.literal("Show Active Wait Status on HUD (if wait action active)"),
+                    defaultShowWait, null
+            );
+            this.addRenderableWidget(this.showActiveWaitCheckbox);
+        } else if (actionType.equalsIgnoreCase("end_objective")) {
+            this.commandSuggestions = null;
         } else {
             this.commandSuggestions = null;
         }
@@ -509,6 +544,8 @@ public class EditActionModalScreen extends Screen {
     private OrchestratorAction createActionForType(String type) {
         return switch (type.toLowerCase()) {
             case "checkpoint" -> new CheckpointAction(0.0, 64.0, 0.0, 0.0f, 0.0f, "");
+            case "new_objective" -> new NewObjectiveAction("New Objective", "Description...", true);
+            case "end_objective" -> new EndObjectiveAction();
             case "wait_until" -> new WaitUntilAction(waitUntilType, 20, "", "Resume Sequence");
             case "await_trigger" -> new AwaitTriggerAction("trigger_1");
             case "fork_sequence" -> new ForkSequenceAction("sub_sequence.json");
@@ -535,6 +572,10 @@ public class EditActionModalScreen extends Screen {
             if (pitchField != null) try { cp.setPitch(Float.parseFloat(pitchField.getValue().trim())); } catch (Exception ignored) {}
             if (labelField != null) cp.setLabel(labelField.getValue().trim());
             if (targetSelectorField != null) cp.setTargetSelector(targetSelectorField.getValue().trim());
+        } else if (action instanceof NewObjectiveAction noa) {
+            if (nameField != null) noa.setName(nameField.getValue().trim());
+            if (descriptionField != null) noa.setDescription(descriptionField.getValue().trim());
+            if (showActiveWaitCheckbox != null) noa.setShowActiveWait(showActiveWaitCheckbox.isChecked());
         } else if (action instanceof AwaitTriggerAction ata) {
             ata.setTriggerId(val);
         } else if (action instanceof WaitUntilAction wua) {
@@ -748,6 +789,10 @@ public class EditActionModalScreen extends Screen {
             promptLabel = "Checkpoint Action Parameters:";
             promptColor = 0xFFAABBCC;
             showInputFieldBox = false;
+        } else if (actionType.equalsIgnoreCase("new_objective") || actionType.equalsIgnoreCase("end_objective")) {
+            promptLabel = actionType.equalsIgnoreCase("new_objective") ? "Configure Mission Objective Parameters:" : "End Active Objective Action:";
+            promptColor = 0xFF00E5FF;
+            showInputFieldBox = false;
         } else {
             promptLabel = switch (actionType.toLowerCase()) {
                 case "fork_sequence", "run_sequence" -> "Subsequence JSON File Name [Start Action #]:";
@@ -792,6 +837,14 @@ public class EditActionModalScreen extends Screen {
             // Row 4: Target Selector
             graphics.drawString(this.font, "Target Selector", left + 210, top + 213, 0xFFAABBCC, false);
             drawBorderBox(graphics, left + 210, top + 223, 128, 20, 0xAA00E5FF, 0xEE08121B);
+        } else if (actionType.equalsIgnoreCase("new_objective")) {
+            graphics.drawString(this.font, "Objective Title / Header", left + 20, top + 93, 0xFFAABBCC, false);
+            drawBorderBox(graphics, left + 20, top + 104, panelWidth - 40, 20, 0xAA00E5FF, 0xEE08121B);
+
+            graphics.drawString(this.font, "Objective Description / Instructions", left + 20, top + 135, 0xFFAABBCC, false);
+            drawBorderBox(graphics, left + 20, top + 146, panelWidth - 40, 20, 0xAA00E5FF, 0xEE08121B);
+        } else if (actionType.equalsIgnoreCase("end_objective")) {
+            graphics.drawString(this.font, "Clears current active objective from the HUD overlay.", left + 20, top + 114, 0xFFAABBCC, false);
         } else {
             int labelY = (actionType.equalsIgnoreCase("wait_until") && waitUntilType.equalsIgnoreCase("delay")) ? top + 114 : top + 104;
             graphics.drawString(this.font, promptLabel, left + 20, labelY, promptColor, false);

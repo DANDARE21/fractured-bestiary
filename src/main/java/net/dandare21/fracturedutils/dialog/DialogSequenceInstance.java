@@ -198,7 +198,8 @@ public class DialogSequenceInstance {
                 line.getCameraY(),
                 line.getCameraZ(),
                 line.getCameraYaw(),
-                line.getCameraPitch()
+                line.getCameraPitch(),
+                line.getCameraFov()
         );
         ModMessages.sendToPlayers(packet, targets);
 

@@ -20,6 +20,10 @@ public class DelayAction implements OrchestratorAction {
         return ticks;
     }
 
+    public int getRemainingTicks() {
+        return remainingTicks;
+    }
+
     public void setTicks(int ticks) {
         this.ticks = ticks;
     }

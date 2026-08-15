@@ -77,8 +77,12 @@ public class DialogScreen extends Screen {
         this.savedClientSequenceFiles = loadLocalClientSequences();
         this.workingClientSequenceFiles = new HashMap<>(this.savedClientSequenceFiles);
 
-        boolean isMultiplayer = Minecraft.getInstance().getCurrentServer() != null || !Minecraft.getInstance().isSingleplayer();
-        this.isClientMode = !isMultiplayer;
+        if (this.savedServerSequenceFiles != null && !this.savedServerSequenceFiles.isEmpty()) {
+            this.isClientMode = false;
+        } else {
+            boolean isMultiplayer = Minecraft.getInstance().getCurrentServer() != null || !Minecraft.getInstance().isSingleplayer();
+            this.isClientMode = !isMultiplayer;
+        }
 
         Map<String, String> activeMap = getActiveSequenceMap();
         if (!activeMap.isEmpty()) {
