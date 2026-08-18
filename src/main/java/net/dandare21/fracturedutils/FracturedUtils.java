@@ -47,6 +47,13 @@ public class FracturedUtils
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event)
     {
+        net.dandare21.fracturedutils.sound.event.EventAudioManager.getInstance().onServerStarting(event.getServer());
+    }
+
+    @SubscribeEvent
+    public void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event)
+    {
+        net.dandare21.fracturedutils.sound.event.EventAudioManager.getInstance().onServerStopping(event.getServer());
     }
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -58,6 +65,7 @@ public class FracturedUtils
             event.enqueueWork(() -> {
                 net.dandare21.fracturedutils.client.animation.PlayerAnimationManager.init();
                 net.dandare21.fracturedutils.sound.DialogResourcePackGenerator.generateIfMissing();
+                net.dandare21.fracturedutils.sound.event.ClientAudioPackManager.getInstance().init();
             });
         }
 

@@ -17,6 +17,10 @@ public class ServerConfig {
 
     private static boolean keepInventoryNoXp = false;
     private static int teamWipeScreenDurationSeconds = 3;
+    private static int eventAudioPort = 8085;
+    private static String eventAudioExternalUrl = "";
+    private static boolean eventAudioRequirePack = true;
+    private static String eventAudioNamespace = "fracturedutils";
     private static boolean loaded = false;
 
     public static synchronized void load() {
@@ -31,6 +35,18 @@ public class ServerConfig {
                         }
                         if (json.has("teamWipeScreenDurationSeconds")) {
                             teamWipeScreenDurationSeconds = Math.max(1, json.get("teamWipeScreenDurationSeconds").getAsInt());
+                        }
+                        if (json.has("eventAudioPort")) {
+                            eventAudioPort = Math.max(1024, json.get("eventAudioPort").getAsInt());
+                        }
+                        if (json.has("eventAudioExternalUrl")) {
+                            eventAudioExternalUrl = json.get("eventAudioExternalUrl").getAsString();
+                        }
+                        if (json.has("eventAudioRequirePack")) {
+                            eventAudioRequirePack = json.get("eventAudioRequirePack").getAsBoolean();
+                        }
+                        if (json.has("eventAudioNamespace")) {
+                            eventAudioNamespace = json.get("eventAudioNamespace").getAsString();
                         }
                         FracturedUtils.LOGGER.info("[ServerConfig] Loaded server configuration.");
                     }
@@ -50,6 +66,10 @@ public class ServerConfig {
             JsonObject json = new JsonObject();
             json.addProperty("keepInventoryNoXp", keepInventoryNoXp);
             json.addProperty("teamWipeScreenDurationSeconds", teamWipeScreenDurationSeconds);
+            json.addProperty("eventAudioPort", eventAudioPort);
+            json.addProperty("eventAudioExternalUrl", eventAudioExternalUrl);
+            json.addProperty("eventAudioRequirePack", eventAudioRequirePack);
+            json.addProperty("eventAudioNamespace", eventAudioNamespace);
 
             try (Writer writer = Files.newBufferedWriter(CONFIG_FILE)) {
                 GSON.toJson(json, writer);
@@ -82,6 +102,58 @@ public class ServerConfig {
         int val = Math.max(1, seconds);
         if (teamWipeScreenDurationSeconds != val) {
             teamWipeScreenDurationSeconds = val;
+            save();
+        }
+    }
+
+    public static int getEventAudioPort() {
+        load();
+        return eventAudioPort;
+    }
+
+    public static void setEventAudioPort(int port) {
+        load();
+        if (eventAudioPort != port) {
+            eventAudioPort = port;
+            save();
+        }
+    }
+
+    public static String getEventAudioExternalUrl() {
+        load();
+        return eventAudioExternalUrl;
+    }
+
+    public static void setEventAudioExternalUrl(String url) {
+        load();
+        if (url != null && !eventAudioExternalUrl.equals(url)) {
+            eventAudioExternalUrl = url;
+            save();
+        }
+    }
+
+    public static boolean isEventAudioRequirePack() {
+        load();
+        return eventAudioRequirePack;
+    }
+
+    public static void setEventAudioRequirePack(boolean requirePack) {
+        load();
+        if (eventAudioRequirePack != requirePack) {
+            eventAudioRequirePack = requirePack;
+            save();
+        }
+    }
+
+    public static String getEventAudioNamespace() {
+        load();
+        return eventAudioNamespace;
+    }
+
+    public static void setEventAudioNamespace(String namespace) {
+        load();
+        if (namespace != null && !eventAudioNamespace.equals(namespace)) {
+            eventAudioNamespace = namespace;
             save();
         }
     }

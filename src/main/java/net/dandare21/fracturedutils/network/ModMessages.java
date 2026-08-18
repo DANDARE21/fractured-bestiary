@@ -32,6 +32,11 @@ import net.dandare21.fracturedutils.network.packet.C2SDialogAdvancePacket;
 import net.dandare21.fracturedutils.network.packet.S2CDialogReadinessPacket;
 import net.dandare21.fracturedutils.network.packet.S2CDialogClearPacket;
 import net.dandare21.fracturedutils.network.packet.S2CSyncObjectivePacket;
+import net.dandare21.fracturedutils.network.packet.S2CPlayEventAudioPacket;
+import net.dandare21.fracturedutils.network.packet.S2CStopEventAudioPacket;
+import net.dandare21.fracturedutils.network.packet.C2SResourcePackStatusPacket;
+import net.dandare21.fracturedutils.network.packet.S2CAudioPackSyncPacket;
+import net.dandare21.fracturedutils.network.packet.S2CAudioSyncTimePacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -241,6 +246,36 @@ public class ModMessages {
                 .decoder(S2CSyncObjectivePacket::new)
                 .encoder(S2CSyncObjectivePacket::encode)
                 .consumerMainThread(S2CSyncObjectivePacket::handle)
+                .add();
+
+        net.messageBuilder(S2CPlayEventAudioPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CPlayEventAudioPacket::new)
+                .encoder(S2CPlayEventAudioPacket::encode)
+                .consumerMainThread(S2CPlayEventAudioPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CStopEventAudioPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CStopEventAudioPacket::new)
+                .encoder(S2CStopEventAudioPacket::encode)
+                .consumerMainThread(S2CStopEventAudioPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SResourcePackStatusPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SResourcePackStatusPacket::new)
+                .encoder(C2SResourcePackStatusPacket::encode)
+                .consumerMainThread(C2SResourcePackStatusPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CAudioPackSyncPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CAudioPackSyncPacket::new)
+                .encoder(S2CAudioPackSyncPacket::encode)
+                .consumerMainThread(S2CAudioPackSyncPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CAudioSyncTimePacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CAudioSyncTimePacket::new)
+                .encoder(S2CAudioSyncTimePacket::encode)
+                .consumerMainThread(S2CAudioSyncTimePacket::handle)
                 .add();
     }
 

@@ -34,6 +34,7 @@ public class ServerEventHandler {
         net.dandare21.fracturedutils.command.OrchestratorCommand.register(event.getDispatcher());
         net.dandare21.fracturedutils.command.PingCommand.register(event.getDispatcher());
         net.dandare21.fracturedutils.command.DialogCommand.register(event.getDispatcher());
+        net.dandare21.fracturedutils.command.EventMusicCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent
@@ -43,6 +44,7 @@ public class ServerEventHandler {
             WaitingRoomManager.getInstance().tick(event.getServer());
             net.dandare21.fracturedutils.checkpoint.CheckpointManager.getInstance().tick(event.getServer());
             net.dandare21.fracturedutils.dialog.DialogManager.getInstance().tick(event.getServer());
+            net.dandare21.fracturedutils.sound.event.EventAudioManager.getInstance().tick(event.getServer());
 
             for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
                 if (net.dandare21.fracturedutils.dialog.DialogManager.getInstance().isCameraActiveForPlayer(player)) {
@@ -177,6 +179,7 @@ public class ServerEventHandler {
         if (event.getEntity() instanceof ServerPlayer player) {
             MaintenanceManager.getInstance().checkAndKickOnJoin(player);
             net.dandare21.fracturedutils.ping.PingManager.getInstance().syncToPlayer(player);
+            net.dandare21.fracturedutils.sound.event.EventAudioManager.getInstance().onPlayerJoin(player);
 
             WaitingRoomManager mgr = WaitingRoomManager.getInstance();
             if (mgr.isActive()) {
