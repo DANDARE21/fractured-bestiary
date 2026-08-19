@@ -37,6 +37,11 @@ import net.dandare21.fracturedutils.network.packet.S2CStopEventAudioPacket;
 import net.dandare21.fracturedutils.network.packet.C2SResourcePackStatusPacket;
 import net.dandare21.fracturedutils.network.packet.S2CAudioPackSyncPacket;
 import net.dandare21.fracturedutils.network.packet.S2CAudioSyncTimePacket;
+import net.dandare21.fracturedutils.network.packet.C2SRequestOpenMusicSequenceUiPacket;
+import net.dandare21.fracturedutils.network.packet.S2CSendMusicSequenceDataPacket;
+import net.dandare21.fracturedutils.network.packet.C2SSaveMusicSequencePacket;
+import net.dandare21.fracturedutils.network.packet.C2SDeleteMusicSequencePacket;
+import net.dandare21.fracturedutils.network.packet.C2SStartMusicSequencePacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -276,6 +281,36 @@ public class ModMessages {
                 .decoder(S2CAudioSyncTimePacket::new)
                 .encoder(S2CAudioSyncTimePacket::encode)
                 .consumerMainThread(S2CAudioSyncTimePacket::handle)
+                .add();
+
+        net.messageBuilder(C2SRequestOpenMusicSequenceUiPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SRequestOpenMusicSequenceUiPacket::new)
+                .encoder(C2SRequestOpenMusicSequenceUiPacket::encode)
+                .consumerMainThread(C2SRequestOpenMusicSequenceUiPacket::handle)
+                .add();
+
+        net.messageBuilder(S2CSendMusicSequenceDataPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(S2CSendMusicSequenceDataPacket::new)
+                .encoder(S2CSendMusicSequenceDataPacket::encode)
+                .consumerMainThread(S2CSendMusicSequenceDataPacket::handle)
+                .add();
+
+        net.messageBuilder(C2SSaveMusicSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SSaveMusicSequencePacket::new)
+                .encoder(C2SSaveMusicSequencePacket::encode)
+                .consumerMainThread(C2SSaveMusicSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(C2SDeleteMusicSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SDeleteMusicSequencePacket::new)
+                .encoder(C2SDeleteMusicSequencePacket::encode)
+                .consumerMainThread(C2SDeleteMusicSequencePacket::handle)
+                .add();
+
+        net.messageBuilder(C2SStartMusicSequencePacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(C2SStartMusicSequencePacket::new)
+                .encoder(C2SStartMusicSequencePacket::encode)
+                .consumerMainThread(C2SStartMusicSequencePacket::handle)
                 .add();
     }
 

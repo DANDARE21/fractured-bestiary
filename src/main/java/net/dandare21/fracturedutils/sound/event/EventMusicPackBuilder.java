@@ -182,11 +182,7 @@ public class EventMusicPackBuilder {
     public List<String> getAvailableTrackSuggestions(String namespace) {
         List<String> suggestions = new ArrayList<>();
         for (String track : registeredTracks) {
-            suggestions.add(track); // e.g. event.track1
-            suggestions.add(namespace + ":" + track); // e.g. fracturedutils:event.track1
-            if (track.startsWith("event.")) {
-                suggestions.add(track.substring(6)); // e.g. track1
-            }
+            suggestions.add(track);
         }
         return suggestions;
     }

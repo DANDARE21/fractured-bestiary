@@ -255,8 +255,8 @@ public class CyberpunkDropdown<T> extends AbstractWidget {
                 } else if (amount < 0) {
                     this.scrollOffset = Math.min(maxScroll, this.scrollOffset + 1);
                 }
-                return true;
             }
+            return true;
         }
         return false;
     }

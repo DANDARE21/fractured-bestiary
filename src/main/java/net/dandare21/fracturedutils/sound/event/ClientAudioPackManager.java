@@ -69,10 +69,50 @@ public class ClientAudioPackManager {
     }
 
     public byte[] getTrackBytes(String soundEventId) {
-        if (soundEventId == null) return null;
-        String cleanId = soundEventId.contains(":") ? soundEventId.substring(soundEventId.indexOf(':') + 1) : soundEventId;
+        if (soundEventId == null || soundEventId.trim().isEmpty()) return null;
+        String trackStr = soundEventId.trim();
+        String cleanId = trackStr.contains(":") ? trackStr.substring(trackStr.indexOf(':') + 1) : trackStr;
         if (cleanId.startsWith("event.")) cleanId = cleanId.substring(6);
 
+        String pathFromId = cleanId.replace('.', '/');
+        Path gameDir = FMLPaths.GAMEDIR.get();
+
+        // 1. Prioritize raw disk files in event_music/tracks (always up-to-date)
+        Path tracksDir = gameDir.resolve("event_music").resolve("tracks");
+        if (Files.exists(tracksDir)) {
+            Path p1 = tracksDir.resolve(cleanId + ".ogg");
+            if (Files.exists(p1)) {
+                try { return Files.readAllBytes(p1); } catch (Exception ignored) {}
+            }
+            Path p2 = tracksDir.resolve(pathFromId + ".ogg");
+            if (Files.exists(p2)) {
+                try { return Files.readAllBytes(p2); } catch (Exception ignored) {}
+            }
+
+            // Recursive search in event_music/tracks
+            final String searchCleanId = cleanId;
+            final String searchPathId = pathFromId;
+            try (var stream = Files.walk(tracksDir)) {
+                var found = stream.filter(Files::isRegularFile)
+                        .filter(p -> p.toString().toLowerCase().endsWith(".ogg"))
+                        .filter(p -> {
+                            String rel = tracksDir.relativize(p).toString().replace('\\', '/');
+                            String nameNoExt = rel.endsWith(".ogg") ? rel.substring(0, rel.length() - 4) : rel;
+                            String dotName = nameNoExt.replace('/', '.');
+                            return nameNoExt.equalsIgnoreCase(searchCleanId)
+                                    || nameNoExt.equalsIgnoreCase(searchPathId)
+                                    || dotName.equalsIgnoreCase(searchCleanId)
+                                    || ("event." + dotName).equalsIgnoreCase(trackStr)
+                                    || p.getFileName().toString().equalsIgnoreCase(searchCleanId + ".ogg");
+                        })
+                        .findFirst();
+                if (found.isPresent()) {
+                    try { return Files.readAllBytes(found.get()); } catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Search client event_music_pack.zip
         File packFile = getActivePackFile();
         if (packFile == null || !packFile.exists()) packFile = locateClientPackZip();
 
@@ -80,7 +120,9 @@ public class ClientAudioPackManager {
             try (ZipFile zf = new ZipFile(packFile)) {
                 String[] candidates = new String[]{
                         "assets/fracturedutils/sounds/music/" + cleanId + ".ogg",
+                        "assets/fracturedutils/sounds/music/" + pathFromId + ".ogg",
                         "assets/fracturedutils/sounds/" + cleanId + ".ogg",
+                        "assets/fracturedutils/sounds/" + pathFromId + ".ogg",
                         "assets/fractured_utils/sounds/music/" + cleanId + ".ogg",
                         "assets/minecraft/sounds/music/" + cleanId + ".ogg",
                         cleanId + ".ogg"
@@ -98,20 +140,43 @@ public class ClientAudioPackManager {
             }
         }
 
-        // Search raw track paths in client directory
-        Path gameDir = FMLPaths.GAMEDIR.get();
-        Path[] rawCandidates = new Path[]{
-                gameDir.resolve("event_music").resolve("tracks").resolve(cleanId + ".ogg"),
-                gameDir.resolve("event_music").resolve(cleanId + ".ogg"),
-                gameDir.resolve("tracks").resolve(cleanId + ".ogg"),
-                gameDir.resolve(cleanId + ".ogg")
-        };
+        // 3. Search Minecraft Client ResourceManager
+        try {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc != null && mc.getResourceManager() != null) {
+                var rm = mc.getResourceManager();
+                net.minecraft.resources.ResourceLocation[] resCandidates = new net.minecraft.resources.ResourceLocation[]{
+                        net.minecraft.resources.ResourceLocation.tryParse("fracturedutils:sounds/music/" + cleanId + ".ogg"),
+                        net.minecraft.resources.ResourceLocation.tryParse("fracturedutils:sounds/music/" + pathFromId + ".ogg"),
+                        net.minecraft.resources.ResourceLocation.tryParse("fracturedutils:sounds/" + cleanId + ".ogg"),
+                        net.minecraft.resources.ResourceLocation.tryParse("fracturedutils:sounds/" + pathFromId + ".ogg"),
+                        net.minecraft.resources.ResourceLocation.tryParse("fracturedutils:music/" + cleanId + ".ogg"),
+                        net.minecraft.resources.ResourceLocation.tryParse("minecraft:sounds/music/" + cleanId + ".ogg")
+                };
+                for (var loc : resCandidates) {
+                    if (loc != null) {
+                        var res = rm.getResource(loc);
+                        if (res.isPresent()) {
+                            try (InputStream is = res.get().open()) {
+                                return is.readAllBytes();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
 
-        for (Path p : rawCandidates) {
-            if (Files.exists(p)) {
-                try {
-                    return Files.readAllBytes(p);
-                } catch (Exception ignored) {
+        // 4. Search parent workspace directory (dev environment)
+        if (gameDir.getParent() != null) {
+            Path parentTracks = gameDir.getParent().resolve("event_music").resolve("tracks");
+            if (Files.exists(parentTracks)) {
+                Path p1 = parentTracks.resolve(cleanId + ".ogg");
+                if (Files.exists(p1)) {
+                    try { return Files.readAllBytes(p1); } catch (Exception ignored) {}
+                }
+                Path p2 = parentTracks.resolve(pathFromId + ".ogg");
+                if (Files.exists(p2)) {
+                    try { return Files.readAllBytes(p2); } catch (Exception ignored) {}
                 }
             }
         }
@@ -143,6 +208,12 @@ public class ClientAudioPackManager {
     }
 
     public List<String> getAvailableTracks() {
-        return availableTracks;
+        if (availableTracks == null || availableTracks.isEmpty()) {
+            boolean built = packBuilder.buildPack("fracturedutils");
+            if (built) {
+                availableTracks = packBuilder.getAvailableTrackSuggestions("fracturedutils");
+            }
+        }
+        return availableTracks != null ? availableTracks : new ArrayList<>();
     }
 }

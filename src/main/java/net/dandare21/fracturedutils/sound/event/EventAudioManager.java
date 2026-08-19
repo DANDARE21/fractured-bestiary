@@ -222,7 +222,15 @@ public class EventAudioManager {
     }
 
     public List<String> getAvailableTrackSuggestions() {
-        return packBuilder.getAvailableTrackSuggestions(ServerConfig.getEventAudioNamespace());
+        if (packBuilder.getRegisteredTracks().isEmpty()) {
+            packBuilder.buildPack(ServerConfig.getEventAudioNamespace());
+        }
+        List<String> suggestions = packBuilder.getAvailableTrackSuggestions(ServerConfig.getEventAudioNamespace());
+        if (suggestions.isEmpty()) {
+            packBuilder.buildPack(ServerConfig.getEventAudioNamespace());
+            suggestions = packBuilder.getAvailableTrackSuggestions(ServerConfig.getEventAudioNamespace());
+        }
+        return suggestions;
     }
 
     public PackStatus getPlayerStatus(UUID playerUuid) {
