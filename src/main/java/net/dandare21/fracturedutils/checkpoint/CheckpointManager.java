@@ -167,6 +167,11 @@ public class CheckpointManager {
                     activeSequence.setCurrentIndex(checkpointIndex);
                     activeSequence.unpause();
                 }
+
+                // Stop active music sequences and audio when restoring checkpoint
+                net.dandare21.fracturedutils.sound.sequence.MusicSequenceManager.getInstance().stopAllSequences(server);
+                net.dandare21.fracturedutils.sound.event.EventAudioManager.getInstance().stopAudio(server, null, 0);
+
                 downedPlayers.clear();
                 reviveProgress.clear();
                 reviverMap.clear();

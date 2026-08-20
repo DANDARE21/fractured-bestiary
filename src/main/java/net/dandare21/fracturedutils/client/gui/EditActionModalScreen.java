@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public class EditActionModalScreen extends Screen {
@@ -32,6 +33,7 @@ public class EditActionModalScreen extends Screen {
     private CyberpunkDropdown<String> actionTypeDropdown;
     private CyberpunkDropdown<String> subActionTypeDropdown;
     private CyberpunkDropdown<DelayUnit> unitDropdown;
+    private CyberpunkDropdown<String> musicSequenceDropdown;
 
     private EditBox inputField;
     private EditBox xField;
@@ -65,6 +67,8 @@ public class EditActionModalScreen extends Screen {
                 this.waitUntilType = "delay";
             } else if (t.equalsIgnoreCase("await_trigger")) {
                 this.actionType = "await_trigger";
+            } else if (t.equalsIgnoreCase("play_music_sequence") || t.equalsIgnoreCase("music_sequence")) {
+                this.actionType = "play_music_sequence";
             } else {
                 this.actionType = t;
             }
@@ -116,6 +120,7 @@ public class EditActionModalScreen extends Screen {
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("checkpoint", Component.literal("Checkpoint Action"), Component.literal("Set checkpoint location; teleports team & rewinds sequence on wipe")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("new_objective", Component.literal("New Objective"), Component.literal("Set mission objective text on HUD with optional active wait tracking")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("end_objective", Component.literal("End Objective"), Component.literal("Clear current active objective on HUD")));
+        actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("play_music_sequence", Component.literal("Play Music Sequence"), Component.literal("Play a music sequence JSON synced to event music track")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("wait_until", Component.literal("Wait Until Action"), Component.literal("Pause sequence until condition is met")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("await_trigger", Component.literal("Await Trigger"), Component.literal("Wait for external trigger ID event")));
         actionEntries.add(new CyberpunkDropdown.DropdownEntry<>("fork_sequence", Component.literal("Fork Sequence"), Component.literal("Asynchronously start sub-sequence")));
@@ -473,6 +478,48 @@ public class EditActionModalScreen extends Screen {
                     defaultShowWait, null
             );
             this.addRenderableWidget(this.showActiveWaitCheckbox);
+        } else if (actionType.equalsIgnoreCase("play_music_sequence")) {
+            this.commandSuggestions = null;
+            String defaultSeqFile = "music_sequence.json";
+            boolean defaultAwait = false;
+            if (action instanceof PlayMusicSequenceAction pmsa) {
+                defaultSeqFile = pmsa.getSequenceFile();
+                defaultAwait = pmsa.isAwaitCompletion();
+            }
+
+            List<String> availableMusicSeqs = net.dandare21.fracturedutils.sound.sequence.MusicSequenceManager.getInstance().getSequenceFileNames();
+            Set<String> allFiles = new java.util.LinkedHashSet<>(availableMusicSeqs);
+            if (defaultSeqFile != null && !defaultSeqFile.isEmpty()) {
+                allFiles.add(defaultSeqFile);
+            }
+
+            List<CyberpunkDropdown.DropdownEntry<String>> seqEntries = new ArrayList<>();
+            for (String file : allFiles) {
+                seqEntries.add(new CyberpunkDropdown.DropdownEntry<>(file, Component.literal(file), Component.literal("Music Sequence File")));
+            }
+
+            if (seqEntries.isEmpty()) {
+                seqEntries.add(new CyberpunkDropdown.DropdownEntry<>("new_music_sequence.json", Component.literal("new_music_sequence.json")));
+            }
+
+            this.musicSequenceDropdown = new CyberpunkDropdown<>(left + 20, top + 116, panelWidth - 40, 20, Component.literal("Select Music Sequence"));
+            this.musicSequenceDropdown.setOptions(seqEntries);
+            this.musicSequenceDropdown.selectByValue(defaultSeqFile);
+            this.musicSequenceDropdown.setMaxVisibleItems(4);
+            this.musicSequenceDropdown.setItemHeight(22);
+            this.musicSequenceDropdown.setOnOpenListener(() -> {
+                if (actionTypeDropdown != null) actionTypeDropdown.setOpen(false);
+                if (subActionTypeDropdown != null) subActionTypeDropdown.setOpen(false);
+                if (unitDropdown != null) unitDropdown.setOpen(false);
+            });
+            this.addRenderableWidget(this.musicSequenceDropdown);
+
+            this.showActiveWaitCheckbox = new CyberpunkCheckbox(
+                    left + 20, top + 155, panelWidth - 40, 18,
+                    Component.literal("Wait until Music Sequence finishes before continuing"),
+                    defaultAwait, null
+            );
+            this.addRenderableWidget(this.showActiveWaitCheckbox);
         } else if (actionType.equalsIgnoreCase("end_objective")) {
             this.commandSuggestions = null;
         } else {
@@ -546,6 +593,7 @@ public class EditActionModalScreen extends Screen {
             case "checkpoint" -> new CheckpointAction(0.0, 64.0, 0.0, 0.0f, 0.0f, "");
             case "new_objective" -> new NewObjectiveAction("New Objective", "Description...", true);
             case "end_objective" -> new EndObjectiveAction();
+            case "play_music_sequence", "music_sequence" -> new PlayMusicSequenceAction("music_sequence.json", false);
             case "wait_until" -> new WaitUntilAction(waitUntilType, 20, "", "Resume Sequence");
             case "await_trigger" -> new AwaitTriggerAction("trigger_1");
             case "fork_sequence" -> new ForkSequenceAction("sub_sequence.json");
@@ -576,6 +624,15 @@ public class EditActionModalScreen extends Screen {
             if (nameField != null) noa.setName(nameField.getValue().trim());
             if (descriptionField != null) noa.setDescription(descriptionField.getValue().trim());
             if (showActiveWaitCheckbox != null) noa.setShowActiveWait(showActiveWaitCheckbox.isChecked());
+        } else if (action instanceof PlayMusicSequenceAction pmsa) {
+            if (musicSequenceDropdown != null && musicSequenceDropdown.getSelectedValue() != null) {
+                pmsa.setSequenceFile(musicSequenceDropdown.getSelectedValue());
+            } else {
+                pmsa.setSequenceFile(val);
+            }
+            if (showActiveWaitCheckbox != null) {
+                pmsa.setAwaitCompletion(showActiveWaitCheckbox.isChecked());
+            }
         } else if (action instanceof AwaitTriggerAction ata) {
             ata.setTriggerId(val);
         } else if (action instanceof WaitUntilAction wua) {
@@ -646,7 +703,8 @@ public class EditActionModalScreen extends Screen {
     private boolean isDropdownOpen() {
         return (actionTypeDropdown != null && actionTypeDropdown.isOpen()) ||
                 (subActionTypeDropdown != null && subActionTypeDropdown.isOpen()) ||
-                (unitDropdown != null && unitDropdown.isOpen());
+                (unitDropdown != null && unitDropdown.isOpen()) ||
+                (musicSequenceDropdown != null && musicSequenceDropdown.isOpen());
     }
 
     @Override
@@ -659,6 +717,7 @@ public class EditActionModalScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (musicSequenceDropdown != null && musicSequenceDropdown.mouseScrolled(mouseX, mouseY, amount)) return true;
         if (subActionTypeDropdown != null && subActionTypeDropdown.mouseScrolled(mouseX, mouseY, amount)) return true;
         if (unitDropdown != null && unitDropdown.mouseScrolled(mouseX, mouseY, amount)) return true;
         if (actionTypeDropdown != null && actionTypeDropdown.mouseScrolled(mouseX, mouseY, amount)) return true;
@@ -671,6 +730,9 @@ public class EditActionModalScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (musicSequenceDropdown != null && musicSequenceDropdown.isOpen()) {
+            if (musicSequenceDropdown.mouseClicked(mouseX, mouseY, button)) return true;
+        }
         if (subActionTypeDropdown != null && subActionTypeDropdown.isOpen()) {
             if (subActionTypeDropdown.mouseClicked(mouseX, mouseY, button)) return true;
         }
@@ -693,6 +755,7 @@ public class EditActionModalScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (musicSequenceDropdown != null && musicSequenceDropdown.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
         if (subActionTypeDropdown != null && subActionTypeDropdown.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
         if (unitDropdown != null && unitDropdown.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
         if (actionTypeDropdown != null && actionTypeDropdown.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
@@ -702,6 +765,7 @@ public class EditActionModalScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (musicSequenceDropdown != null && musicSequenceDropdown.mouseReleased(mouseX, mouseY, button)) return true;
         if (subActionTypeDropdown != null && subActionTypeDropdown.mouseReleased(mouseX, mouseY, button)) return true;
         if (unitDropdown != null && unitDropdown.mouseReleased(mouseX, mouseY, button)) return true;
         if (actionTypeDropdown != null && actionTypeDropdown.mouseReleased(mouseX, mouseY, button)) return true;
@@ -765,6 +829,10 @@ public class EditActionModalScreen extends Screen {
         } else if (actionType.equalsIgnoreCase("await_trigger")) {
             promptLabel = "Trigger ID Event Name:";
             promptColor = 0xFFAABBCC;
+        } else if (actionType.equalsIgnoreCase("play_music_sequence")) {
+            promptLabel = "Select Music Sequence JSON File:";
+            promptColor = 0xFFAA55FF;
+            showInputFieldBox = false;
         } else if (actionType.equalsIgnoreCase("wait_until")) {
             promptLabel = switch (waitUntilType.toLowerCase()) {
                 case "delay" -> "Wait Duration (" + delayUnit.name() + "):";
@@ -881,5 +949,6 @@ public class EditActionModalScreen extends Screen {
         if (actionTypeDropdown != null) actionTypeDropdown.renderOverlay(graphics, mouseX, mouseY);
         if (subActionTypeDropdown != null) subActionTypeDropdown.renderOverlay(graphics, mouseX, mouseY);
         if (unitDropdown != null) unitDropdown.renderOverlay(graphics, mouseX, mouseY);
+        if (musicSequenceDropdown != null) musicSequenceDropdown.renderOverlay(graphics, mouseX, mouseY);
     }
 }

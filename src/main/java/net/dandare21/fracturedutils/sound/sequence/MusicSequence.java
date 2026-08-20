@@ -11,6 +11,8 @@ public class MusicSequence {
     private float volume;
     private float pitch;
     private int bpm;
+    private long startMs;
+    private long endMs;
     private List<MusicSequenceEntry> entries;
 
     public MusicSequence() {
@@ -20,20 +22,28 @@ public class MusicSequence {
         this.volume = 1.0f;
         this.pitch = 1.0f;
         this.bpm = 120;
+        this.startMs = 0L;
+        this.endMs = 0L;
         this.entries = new ArrayList<>();
     }
 
     public MusicSequence(String sequenceName, String songTrack, boolean looping, float volume, float pitch, List<MusicSequenceEntry> entries) {
-        this(sequenceName, songTrack, looping, volume, pitch, 120, entries);
+        this(sequenceName, songTrack, looping, volume, pitch, 120, 0L, 0L, entries);
     }
 
     public MusicSequence(String sequenceName, String songTrack, boolean looping, float volume, float pitch, int bpm, List<MusicSequenceEntry> entries) {
+        this(sequenceName, songTrack, looping, volume, pitch, bpm, 0L, 0L, entries);
+    }
+
+    public MusicSequence(String sequenceName, String songTrack, boolean looping, float volume, float pitch, int bpm, long startMs, long endMs, List<MusicSequenceEntry> entries) {
         this.sequenceName = sequenceName != null ? sequenceName : "new_music_sequence";
         this.songTrack = songTrack != null ? songTrack : "";
         this.looping = looping;
         this.volume = volume > 0 ? volume : 1.0f;
         this.pitch = pitch > 0 ? pitch : 1.0f;
         this.bpm = bpm > 0 ? bpm : 120;
+        this.startMs = Math.max(0L, startMs);
+        this.endMs = Math.max(0L, endMs);
         this.entries = entries != null ? entries : new ArrayList<>();
     }
 
@@ -85,6 +95,22 @@ public class MusicSequence {
         this.bpm = Math.max(20, Math.min(300, bpm));
     }
 
+    public long getStartMs() {
+        return Math.max(0L, startMs);
+    }
+
+    public void setStartMs(long startMs) {
+        this.startMs = Math.max(0L, startMs);
+    }
+
+    public long getEndMs() {
+        return Math.max(0L, endMs);
+    }
+
+    public void setEndMs(long endMs) {
+        this.endMs = Math.max(0L, endMs);
+    }
+
     public List<MusicSequenceEntry> getEntries() {
         if (entries == null) {
             entries = new ArrayList<>();
@@ -109,6 +135,6 @@ public class MusicSequence {
                 copiedEntries.add(e.copy());
             }
         }
-        return new MusicSequence(this.sequenceName, this.songTrack, this.looping, this.volume, this.pitch, this.bpm, copiedEntries);
+        return new MusicSequence(this.sequenceName, this.songTrack, this.looping, this.volume, this.pitch, this.bpm, this.startMs, this.endMs, copiedEntries);
     }
 }

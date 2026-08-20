@@ -58,6 +58,8 @@ public class MusicSequenceScreen extends Screen {
     // Timeline Drag, Pan & Selection
     private int draggedEntryIndex = -1;
     private boolean isDraggingPlayhead = false;
+    private boolean isDraggingStartMarker = false;
+    private boolean isDraggingEndMarker = false;
     private boolean isDraggingTimelineScroll = false;
     private boolean isPanningTimeline = false;
     private double lastDragMouseX = 0;
@@ -504,6 +506,24 @@ public class MusicSequenceScreen extends Screen {
         return Math.max(0L, tickSnappedMs);
     }
 
+    private long getEffectiveEndMs() {
+        if (currentSequence == null) return 30000L;
+        if (currentSequence.getEndMs() > 0) {
+            return currentSequence.getEndMs();
+        }
+        MusicWaveformRenderer.TrackWaveformData waveData = MusicWaveformRenderer.getOrComputeTrueWaveform(currentSequence.getSongTrack());
+        if (waveData != null && waveData.totalDurationMs > 0) {
+            return waveData.totalDurationMs;
+        }
+        long maxEntry = 0L;
+        for (MusicSequenceEntry entry : currentSequence.getEntries()) {
+            if (entry.getTimestampMs() > maxEntry) {
+                maxEntry = entry.getTimestampMs();
+            }
+        }
+        return Math.max(30000L, maxEntry + 1000L);
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (fileDropdown != null && fileDropdown.mouseScrolled(mouseX, mouseY, delta)) {
@@ -587,8 +607,20 @@ public class MusicSequenceScreen extends Screen {
                 }
             }
 
-            // Check click on Ruler -> Seek Playhead
+            // Check click on Ruler -> START Marker, END Marker, or Seek Playhead
             if (mouseY >= timelineTop && mouseY <= timelineTop + rulerHeight) {
+                double startX = timelineLeft + ((currentSequence.getStartMs() - timeScrollMs) / 1000.0) * pixelsPerSecond;
+                double endX = timelineLeft + ((getEffectiveEndMs() - timeScrollMs) / 1000.0) * pixelsPerSecond;
+
+                if (Math.abs(mouseX - startX) <= 14) {
+                    this.isDraggingStartMarker = true;
+                    return true;
+                }
+                if (Math.abs(mouseX - endX) <= 14) {
+                    this.isDraggingEndMarker = true;
+                    return true;
+                }
+
                 double relX = mouseX - timelineLeft;
                 this.playheadMs = Math.max(0.0, timeScrollMs + (relX / pixelsPerSecond) * 1000.0);
                 this.isDraggingPlayhead = true;
@@ -655,9 +687,25 @@ public class MusicSequenceScreen extends Screen {
             return true;
         }
 
-        if (isDraggingPlayhead) {
+        if (isDraggingStartMarker) {
             double relX = mouseX - timelineLeft;
-            this.playheadMs = Math.max(0.0, timeScrollMs + (relX / pixelsPerSecond) * 1000.0);
+            long rawMs = (long) Math.max(0.0, timeScrollMs + (relX / pixelsPerSecond) * 1000.0);
+            long snappedMs = snapTimestamp(rawMs, hasAltDown());
+            long maxAllowed = getEffectiveEndMs() - 50L;
+            long clampedStart = Math.max(0L, Math.min(maxAllowed, snappedMs));
+            currentSequence.setStartMs(clampedStart);
+            saveCurrentSequenceToWorkingMap();
+            return true;
+        }
+
+        if (isDraggingEndMarker) {
+            double relX = mouseX - timelineLeft;
+            long rawMs = (long) Math.max(0.0, timeScrollMs + (relX / pixelsPerSecond) * 1000.0);
+            long snappedMs = snapTimestamp(rawMs, hasAltDown());
+            long minAllowed = currentSequence.getStartMs() + 50L;
+            long clampedEnd = Math.max(minAllowed, snappedMs);
+            currentSequence.setEndMs(clampedEnd);
+            saveCurrentSequenceToWorkingMap();
             return true;
         }
 
@@ -676,6 +724,8 @@ public class MusicSequenceScreen extends Screen {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         isPanningTimeline = false;
+        isDraggingStartMarker = false;
+        isDraggingEndMarker = false;
         if (draggedEntryIndex != -1) {
             currentSequence.sortEntriesByTimestamp();
             saveCurrentSequenceToWorkingMap();
@@ -903,6 +953,117 @@ public class MusicSequenceScreen extends Screen {
                     // Sub-beat line
                     guiGraphics.fill((int) beatX, gridStartY, (int) beatX + 1, gridStartY + gridTotalHeight, 0x3300E5FF);
                 }
+            }
+        }
+
+        // 3.6 Sequence START & END Draggable Markers & Out-Of-Bounds Dimming
+        long startMs = currentSequence.getStartMs();
+        long endMs = getEffectiveEndMs();
+
+        // DAW Preview Playback Loop/Pause between startMs and endMs
+        if (isPreviewPlaying) {
+            if (playheadMs < startMs) {
+                playheadMs = startMs;
+            } else if (playheadMs >= endMs) {
+                if (currentSequence.isLooping()) {
+                    playheadMs = startMs;
+                    EventAudioClientController.getInstance().playAudio(
+                            currentSequence.getSongTrack(),
+                            net.dandare21.fracturedutils.sound.ModSoundSources.EVENT_MUSIC,
+                            currentSequence.getVolume(),
+                            currentSequence.getPitch(),
+                            0,
+                            startMs,
+                            true,
+                            net.dandare21.fracturedutils.network.packet.S2CPlayEventAudioPacket.PlaybackMode.FIRE_AND_FORGET,
+                            true,
+                            2000
+                    );
+                } else {
+                    playheadMs = endMs;
+                    isPreviewPlaying = false;
+                    EventAudioClientController.getInstance().stopAudio(0);
+                }
+            }
+        }
+
+        double startX = timelineLeft + ((startMs - timeScrollMs) / 1000.0) * pixelsPerSecond;
+        double endX = timelineLeft + ((endMs - timeScrollMs) / 1000.0) * pixelsPerSecond;
+
+        // A. Dimmed Region BEFORE START
+        if (startX > timelineLeft) {
+            int dimW = (int) Math.min((double) timelineWidth, startX - timelineLeft);
+            if (dimW > 0) {
+                guiGraphics.fill(timelineLeft, timelineTop, timelineLeft + dimW, timelineTop + totalHeight, 0xCC050A10);
+                guiGraphics.drawString(this.font, "BEFORE START", timelineLeft + 6, timelineTop + 6, 0xAA888888, false);
+            }
+        }
+
+        // B. Dimmed Region AFTER END
+        if (endX < timelineLeft + timelineWidth) {
+            int outOfBoundsStartX = (int) Math.max((double) timelineLeft, endX);
+            int outOfBoundsWidth = (timelineLeft + timelineWidth) - outOfBoundsStartX;
+            if (outOfBoundsWidth > 0) {
+                guiGraphics.fill(outOfBoundsStartX, timelineTop, outOfBoundsStartX + outOfBoundsWidth, timelineTop + totalHeight, 0xCC050A10);
+                guiGraphics.drawString(this.font, "AFTER END", outOfBoundsStartX + 8, timelineTop + 6, 0xFFFF3355, false);
+            }
+        }
+
+        // C. START Marker (Vivid Green 0xFF00FF88)
+        if (startX >= timelineLeft - 40 && startX <= timelineLeft + timelineWidth + 40) {
+            int sx = (int) startX;
+            guiGraphics.fill(sx - 1, timelineTop, sx + 1, timelineTop + totalHeight, 0xFF00FF88);
+
+            int badgeW = 60;
+            int badgeH = 16;
+            int bx = sx - (badgeW / 2);
+            int by = timelineTop + 2;
+
+            boolean hovered = (mouseX >= bx && mouseX <= bx + badgeW && mouseY >= by && mouseY <= by + badgeH);
+            int bg = hovered ? 0xEE08351A : 0xEE041C0E;
+            int border = hovered ? 0xFFFFFFFF : 0xFF00FF88;
+
+            guiGraphics.fill(bx, by, bx + badgeW, by + badgeH, bg);
+            guiGraphics.fill(bx, by, bx + badgeW, by + 1, border);
+            guiGraphics.fill(bx, by + badgeH - 1, bx + badgeW, by + badgeH, border);
+            guiGraphics.fill(bx, by, bx + 1, by + badgeH, border);
+            guiGraphics.fill(bx + badgeW - 1, by, bx + badgeW, by + badgeH, border);
+
+            long sSec = startMs / 1000;
+            String lbl = String.format("▶ %02d:%02d", sSec / 60, sSec % 60);
+            guiGraphics.drawString(this.font, lbl, bx + 4, by + 4, 0xFF00FF88, false);
+
+            if (hovered) {
+                guiGraphics.renderTooltip(this.font, Component.literal("START Marker: Drag to alter sequence start position"), mouseX, mouseY);
+            }
+        }
+
+        // D. END Marker (Vivid Neon Red 0xFFFF2255)
+        if (endX >= timelineLeft - 40 && endX <= timelineLeft + timelineWidth + 40) {
+            int ex = (int) endX;
+            guiGraphics.fill(ex - 1, timelineTop, ex + 1, timelineTop + totalHeight, 0xFFFF2255);
+
+            int badgeW = 60;
+            int badgeH = 16;
+            int bx = ex - (badgeW / 2);
+            int by = timelineTop + 2;
+
+            boolean hovered = (mouseX >= bx && mouseX <= bx + badgeW && mouseY >= by && mouseY <= by + badgeH);
+            int bg = hovered ? 0xEE400B16 : 0xEE2A060E;
+            int border = hovered ? 0xFFFFFFFF : 0xFFFF2255;
+
+            guiGraphics.fill(bx, by, bx + badgeW, by + badgeH, bg);
+            guiGraphics.fill(bx, by, bx + badgeW, by + 1, border);
+            guiGraphics.fill(bx, by + badgeH - 1, bx + badgeW, by + badgeH, border);
+            guiGraphics.fill(bx, by, bx + 1, by + badgeH, border);
+            guiGraphics.fill(bx + badgeW - 1, by, bx + badgeW, by + badgeH, border);
+
+            long eSec = endMs / 1000;
+            String lbl = String.format("🏁 %02d:%02d", eSec / 60, eSec % 60);
+            guiGraphics.drawString(this.font, lbl, bx + 4, by + 4, 0xFFFF2255, false);
+
+            if (hovered) {
+                guiGraphics.renderTooltip(this.font, Component.literal("END Marker: Drag to alter sequence end position"), mouseX, mouseY);
             }
         }
 

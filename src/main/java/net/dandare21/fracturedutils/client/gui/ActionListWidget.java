@@ -376,6 +376,7 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 case "checkpoint" -> 0xFFFF2255;
                 case "new_objective" -> 0xFF00E5FF;
                 case "end_objective" -> 0xFFFF5555;
+                case "play_music_sequence", "music_sequence" -> 0xFFAA55FF;
                 case "wait_until", "delay", "await_trigger" -> 0xFFFFAA00;
                 case "fork_sequence" -> 0xFF55FF55;
                 case "run_sequence" -> 0xFF00E5FF;
@@ -431,6 +432,9 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                 return "📋 New Objective: \"" + noa.getName() + "\"" + waitTag;
             } else if (action instanceof EndObjectiveAction) {
                 return "🏁 End Active Objective";
+            } else if (action instanceof PlayMusicSequenceAction pmsa) {
+                String modeTag = pmsa.isAwaitCompletion() ? " [Wait Finish]" : " [Async]";
+                return "🎵 Play Music Sequence: \"" + pmsa.getSequenceFile() + "\"" + modeTag;
             }
             return "";
         }

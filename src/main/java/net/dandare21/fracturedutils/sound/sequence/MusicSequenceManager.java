@@ -29,6 +29,7 @@ public class MusicSequenceManager {
         private final String fileName;
         private final MusicSequence sequence;
         private final long startTimeMs;
+        private final long expectedDurationMs;
         private final Set<UUID> targetPlayerUuids;
         private final Set<Integer> executedEntryIndices = new HashSet<>();
         private boolean finished = false;
@@ -45,6 +46,27 @@ public class MusicSequenceManager {
                     }
                 }
             }
+
+            long songDuration = 0L;
+            if (sequence.getSongTrack() != null && !sequence.getSongTrack().trim().isEmpty()) {
+                byte[] oggBytes = net.dandare21.fracturedutils.sound.event.AudioTrackBytesProvider.getTrackBytes(sequence.getSongTrack());
+                songDuration = decodeOggDurationMs(oggBytes);
+            }
+
+            long maxEntryTimestamp = 0L;
+            for (MusicSequenceEntry entry : sequence.getEntries()) {
+                if (entry.getTimestampMs() > maxEntryTimestamp) {
+                    maxEntryTimestamp = entry.getTimestampMs();
+                }
+            }
+
+            if (sequence.getEndMs() > 0) {
+                this.expectedDurationMs = sequence.getEndMs();
+            } else if (songDuration > 0) {
+                this.expectedDurationMs = songDuration;
+            } else {
+                this.expectedDurationMs = Math.max(30000L, maxEntryTimestamp + 1000L);
+            }
         }
 
         public String getFileName() {
@@ -59,15 +81,79 @@ public class MusicSequenceManager {
             return startTimeMs;
         }
 
+        public long getExpectedDurationMs() {
+            return expectedDurationMs;
+        }
+
         public boolean isFinished() {
             return finished;
         }
+    }
+
+    public static long decodeOggDurationMs(byte[] bytes) {
+        if (bytes == null || bytes.length < 28) return 0L;
+
+        int sampleRate = 0;
+        for (int i = 0; i <= bytes.length - 15; i++) {
+            if (bytes[i] == 1 && bytes[i + 1] == 'v' && bytes[i + 2] == 'o' && bytes[i + 3] == 'r'
+                    && bytes[i + 4] == 'b' && bytes[i + 5] == 'i' && bytes[i + 6] == 's') {
+                sampleRate = (bytes[i + 11] & 0xFF) |
+                        ((bytes[i + 12] & 0xFF) << 8) |
+                        ((bytes[i + 13] & 0xFF) << 16) |
+                        ((bytes[i + 14] & 0xFF) << 24);
+                break;
+            }
+        }
+
+        if (sampleRate <= 0) return 0L;
+
+        long totalSamples = -1;
+        for (int i = bytes.length - 4; i >= 0; i--) {
+            if (bytes[i] == 0x4F && bytes[i + 1] == 0x67 && bytes[i + 2] == 0x67 && bytes[i + 3] == 0x53) {
+                if (i + 13 < bytes.length) {
+                    long granule = (bytes[i + 6] & 0xFFL) |
+                            ((bytes[i + 7] & 0xFFL) << 8) |
+                            ((bytes[i + 8] & 0xFFL) << 16) |
+                            ((bytes[i + 9] & 0xFFL) << 24) |
+                            ((bytes[i + 10] & 0xFFL) << 32) |
+                            ((bytes[i + 11] & 0xFFL) << 40) |
+                            ((bytes[i + 12] & 0xFFL) << 48) |
+                            ((bytes[i + 13] & 0xFFL) << 56);
+                    if (granule > 0) {
+                        totalSamples = granule;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (totalSamples > 0) {
+            return (totalSamples * 1000L) / sampleRate;
+        }
+
+        return 0L;
     }
 
     private final List<ActiveMusicSequence> activeSequences = new CopyOnWriteArrayList<>();
 
     public static MusicSequenceManager getInstance() {
         return INSTANCE;
+    }
+
+    public boolean isSequenceActive(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) return false;
+        String cleanName = sanitizeFileName(fileName);
+        for (ActiveMusicSequence activeSeq : activeSequences) {
+            String activeClean = sanitizeFileName(activeSeq.getFileName());
+            if (activeClean.equalsIgnoreCase(cleanName) && !activeSeq.isFinished()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean hasActiveSequences() {
+        return !activeSequences.isEmpty();
     }
 
     private MusicSequenceManager() {
@@ -98,12 +184,12 @@ public class MusicSequenceManager {
 
     public List<String> getSequenceFileNames() {
         File dir = getDirectory();
-        File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
+        if (!dir.exists()) return Collections.emptyList();
+        File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
+        if (files == null) return Collections.emptyList();
         List<String> list = new ArrayList<>();
-        if (files != null) {
-            for (File f : files) {
-                list.add(f.getName());
-            }
+        for (File f : files) {
+            list.add(f.getName());
         }
         Collections.sort(list);
         return list;
@@ -161,20 +247,31 @@ public class MusicSequenceManager {
     }
 
     public MusicSequence loadSequence(String fileName) {
-        String cleanName = sanitizeFileName(fileName);
-        File file = new File(getDirectory(), cleanName);
+        if (fileName == null || fileName.trim().isEmpty()) return null;
+        File file = new File(getDirectory(), sanitizeFileName(fileName));
         if (!file.exists()) return null;
 
         try {
             String json = Files.readString(file.toPath());
-            MusicSequence seq = GSON.fromJson(json, MusicSequence.class);
-            if (seq != null) {
-                seq.sortEntriesByTimestamp();
-            }
-            return seq;
-        } catch (Exception e) {
-            FracturedUtils.LOGGER.error("[MusicSequenceManager] Failed to parse music sequence file {}: {}", cleanName, e.getMessage());
+            return GSON.fromJson(json, MusicSequence.class);
+        } catch (IOException e) {
+            FracturedUtils.LOGGER.error("[MusicSequenceManager] Failed to load music sequence '{}'", fileName, e);
             return null;
+        }
+    }
+
+    public boolean saveSequence(String fileName, MusicSequence sequence) {
+        if (fileName == null || fileName.trim().isEmpty() || sequence == null) return false;
+        File file = new File(getDirectory(), sanitizeFileName(fileName));
+
+        try {
+            String json = GSON.toJson(sequence);
+            Files.writeString(file.toPath(), json);
+            FracturedUtils.LOGGER.info("[MusicSequenceManager] Saved music sequence '{}'", fileName);
+            return true;
+        } catch (IOException e) {
+            FracturedUtils.LOGGER.error("[MusicSequenceManager] Failed to save music sequence '{}'", fileName, e);
+            return false;
         }
     }
 
@@ -203,7 +300,7 @@ public class MusicSequenceManager {
         // 2. Track Active Sequence for Timed Action Execution
         ActiveMusicSequence activeSeq = new ActiveMusicSequence(fileName, sequence, targets);
         activeSequences.add(activeSeq);
-        FracturedUtils.LOGGER.info("[MusicSequenceManager] Started music sequence '{}' with {} entries.", fileName, sequence.getEntries().size());
+        FracturedUtils.LOGGER.info("[MusicSequenceManager] Started music sequence '{}' with {} entries (expected duration: {}ms).", fileName, sequence.getEntries().size(), activeSeq.getExpectedDurationMs());
         return true;
     }
 
@@ -222,7 +319,6 @@ public class MusicSequenceManager {
             long elapsedMs = now - activeSeq.getStartTimeMs();
             List<MusicSequenceEntry> entries = activeSeq.getSequence().getEntries();
 
-            boolean allExecuted = true;
             for (int i = 0; i < entries.size(); i++) {
                 if (activeSeq.executedEntryIndices.contains(i)) {
                     continue;
@@ -232,15 +328,12 @@ public class MusicSequenceManager {
                 if (elapsedMs >= entry.getTimestampMs()) {
                     executeEntry(server, activeSeq, entry);
                     activeSeq.executedEntryIndices.add(i);
-                } else {
-                    allExecuted = false;
                 }
             }
 
-            // Mark finished if non-looping and all entries executed (and music has finished or time exceeds max entry + buffer)
-            if (allExecuted && !activeSeq.getSequence().isLooping()) {
-                long maxTimestamp = entries.isEmpty() ? 0 : entries.get(entries.size() - 1).getTimestampMs();
-                if (elapsedMs > maxTimestamp + 5000L) {
+            // Mark finished ONLY when non-looping AND song track playback has completed (elapsedMs >= expectedDurationMs)
+            if (!activeSeq.getSequence().isLooping()) {
+                if (elapsedMs >= activeSeq.getExpectedDurationMs()) {
                     activeSeq.finished = true;
                 }
             }

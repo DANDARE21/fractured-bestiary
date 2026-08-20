@@ -20,6 +20,7 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
         builder.registerTypeAdapter(CheckpointAction.class, adapter);
         builder.registerTypeAdapter(NewObjectiveAction.class, adapter);
         builder.registerTypeAdapter(EndObjectiveAction.class, adapter);
+        builder.registerTypeAdapter(PlayMusicSequenceAction.class, adapter);
         return builder;
     }
 
@@ -48,6 +49,9 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
                 return RAW_GSON.fromJson(obj, NewObjectiveAction.class);
             case "end_objective":
                 return RAW_GSON.fromJson(obj, EndObjectiveAction.class);
+            case "play_music_sequence":
+            case "music_sequence":
+                return RAW_GSON.fromJson(obj, PlayMusicSequenceAction.class);
             case "wait_until":
                 return RAW_GSON.fromJson(obj, WaitUntilAction.class);
             case "proximity":
