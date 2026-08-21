@@ -21,6 +21,7 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
         builder.registerTypeAdapter(NewObjectiveAction.class, adapter);
         builder.registerTypeAdapter(EndObjectiveAction.class, adapter);
         builder.registerTypeAdapter(PlayMusicSequenceAction.class, adapter);
+        builder.registerTypeAdapter(ExecutePuppetAction.class, adapter);
         return builder;
     }
 
@@ -41,6 +42,9 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
         JsonObject obj = json.getAsJsonObject();
         String type = obj.has("type") ? obj.get("type").getAsString() : "";
         switch (type) {
+            case "puppet_action":
+            case "execute_puppet_action":
+                return RAW_GSON.fromJson(obj, ExecutePuppetAction.class);
             case "command":
                 return RAW_GSON.fromJson(obj, CommandAction.class);
             case "checkpoint":
