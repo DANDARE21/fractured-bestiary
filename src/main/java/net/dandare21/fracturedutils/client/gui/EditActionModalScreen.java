@@ -158,6 +158,7 @@ public class EditActionModalScreen extends Screen {
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("proximity", Component.literal("Player Proximity Marker"), Component.literal("Spawns marker entity at (X, Y, Z) and waits for player radius")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("trigger", Component.literal("Event Trigger"), Component.literal("Wait for /orchestrator trigger event")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("operator_action", Component.literal("Operator Action Button"), Component.literal("Display interactive action button on HUD")));
+            subEntries.add(new CyberpunkDropdown.DropdownEntry<>("dialog", Component.literal("Dialog End"), Component.literal("Wait until active dialog sequence finishes")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("video", Component.literal("Video / Cutscene End"), Component.literal("Wait until active video/cinematic ends")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("waiting_room", Component.literal("Waiting Room End"), Component.literal("Wait until active waiting room phase finishes")));
             subEntries.add(new CyberpunkDropdown.DropdownEntry<>("waiting_room_ready", Component.literal("Waiting Room All Ready"), Component.literal("Wait until all players in waiting room click ready")));
@@ -249,6 +250,9 @@ public class EditActionModalScreen extends Screen {
                     this.addRenderableWidget(this.inputField);
                 } else if (waitUntilType.equalsIgnoreCase("operator_action")) {
                     this.inputField.setValue(wua.getLabel());
+                    this.addRenderableWidget(this.inputField);
+                } else if (waitUntilType.equalsIgnoreCase("dialog") || waitUntilType.equalsIgnoreCase("dialog_end")) {
+                    this.inputField.setValue(wua.getTriggerId());
                     this.addRenderableWidget(this.inputField);
                 } else if (waitUntilType.equalsIgnoreCase("trigger")) {
                     this.inputField.setValue(wua.getTriggerId().isEmpty() ? "trigger_1" : wua.getTriggerId());
@@ -642,6 +646,8 @@ public class EditActionModalScreen extends Screen {
             } else if (waitUntilType.equalsIgnoreCase("operator_action")) {
                 wua.setLabel(val);
                 wua.setTriggerId("");
+            } else if (waitUntilType.equalsIgnoreCase("dialog") || waitUntilType.equalsIgnoreCase("dialog_end")) {
+                wua.setTriggerId(val);
             } else if (waitUntilType.equalsIgnoreCase("trigger")) {
                 wua.setTriggerId(val);
             } else if (isProximityMode) {
@@ -839,6 +845,7 @@ public class EditActionModalScreen extends Screen {
                 case "proximity", "marker", "player_proximity", "area" -> "Marker Location Coordinates & Radius:";
                 case "trigger" -> "Trigger ID Event Name:";
                 case "operator_action" -> "Operator Action Button Description:";
+                case "dialog", "dialog_end", "dialogs_end", "dialog_sequence", "dialog_finish" -> "Optional Dialog File Name (leave empty for ANY active dialog):";
                 case "video", "video_end", "cutscene", "cinematic" -> "Pauses sequence until active video/cinematic playback ends.";
                 case "waiting_room", "waiting_room_end", "waitingroom" -> "Pauses sequence until active event waiting room ends.";
                 case "waiting_room_ready", "waiting_room_all_ready", "waitingroom_ready" -> "Pauses sequence until all players in waiting room click ready.";

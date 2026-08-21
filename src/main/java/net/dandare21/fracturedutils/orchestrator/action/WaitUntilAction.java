@@ -266,6 +266,25 @@ public class WaitUntilAction implements OrchestratorAction {
             }
             graceTicks = 0;
             return ActionResult.SUCCESS;
+        } else if (mode.equals("dialog") || mode.equals("dialog_end") || mode.equals("dialogs_end") || mode.equals("dialog_sequence") || mode.equals("dialog_finish")) {
+            boolean activeNow = (triggerId != null && !triggerId.isBlank())
+                    ? net.dandare21.fracturedutils.dialog.DialogManager.getInstance().isSequenceRunning(triggerId)
+                    : net.dandare21.fracturedutils.dialog.DialogManager.getInstance().isSequenceRunning();
+            if (activeNow) {
+                hasSeenActive = true;
+                return ActionResult.BLOCK;
+            }
+            if (hasSeenActive) {
+                hasSeenActive = false;
+                graceTicks = 0;
+                return ActionResult.SUCCESS;
+            }
+            graceTicks++;
+            if (graceTicks < 10) {
+                return ActionResult.BLOCK;
+            }
+            graceTicks = 0;
+            return ActionResult.SUCCESS;
         } else if (mode.equals("downloads") || mode.equals("downloads_end") || mode.equals("cutscene_downloads") || mode.equals("video_downloads")) {
             boolean allFinished = net.dandare21.fracturedutils.cutscene.ServerCutsceneManager.getInstance().areAllDownloadsComplete(server);
             if (!allFinished) {

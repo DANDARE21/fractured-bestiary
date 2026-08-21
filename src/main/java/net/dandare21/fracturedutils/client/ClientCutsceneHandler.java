@@ -235,6 +235,24 @@ public class ClientCutsceneHandler {
             return;
         }
 
+        if (ClientVideoCache.isStreamUrl(videoUrl)) {
+            FracturedUtils.LOGGER.info("[Cutscene] Detected stream URL (" + videoUrl + "). Initializing WATERMeDIA player with remote URI directly.");
+            try {
+                URI streamUri = URI.create(videoUrl);
+                this.currentLocalUri = streamUri.toString();
+                this.downloadedFile = null;
+                initWaterMediaPlayer(streamUri, null);
+                pausePlayer();
+                FracturedUtils.LOGGER.info("[Cutscene] Stream preparation complete. Sending C2SClientReadyPacket for cutscene: " + cutsceneId);
+                ModMessages.sendToServer(new C2SClientReadyPacket(cutsceneId));
+            } catch (Exception e) {
+                FracturedUtils.LOGGER.error("[Cutscene] Error initializing WATERMeDIA player for stream URL " + videoUrl, e);
+                this.errorMessage = "Error initializing WATERMeDIA stream player: " + e.getMessage();
+                stopAndCleanup();
+            }
+            return;
+        }
+
         ClientVideoCache.getVideoFileAsync(videoUrl, customName).thenAcceptAsync(file -> {
             onVideoDownloaded(file, cutsceneId);
         }, Minecraft.getInstance()).exceptionally(ex -> {
@@ -556,8 +574,31 @@ public class ClientCutsceneHandler {
         if (engineClass == null) return null;
         String eName = engineClass.getName();
 
-        // 1. GFXEngine resolution (GLEngine.Builder)
+        // 1. GFXEngine resolution (MediaAPI.glEngine / GLEngine.glEngine / GLEngine.Builder)
         if (eName.contains("GFXEngine") || eName.contains("GfxEngine")) {
+            // MediaAPI.glEngine(Thread, Executor)
+            try {
+                Class<?> mediaApiClass = Class.forName("org.watermedia.api.media.MediaAPI");
+                Method glEngineMethod = mediaApiClass.getMethod("glEngine", Thread.class, java.util.concurrent.Executor.class);
+                Object glEngine = glEngineMethod.invoke(null, Thread.currentThread(), Minecraft.getInstance());
+                if (glEngine != null) {
+                    FracturedUtils.LOGGER.info("[Cutscene] Created GFXEngine via MediaAPI.glEngine(): " + glEngine.getClass().getName());
+                    return glEngine;
+                }
+            } catch (Throwable ignored) {}
+
+            // GLEngine.glEngine(Thread, Executor)
+            try {
+                Class<?> glEngineClass = Class.forName("org.watermedia.api.media.engines.GLEngine");
+                Method glEngineMethod = glEngineClass.getMethod("glEngine", Thread.class, java.util.concurrent.Executor.class);
+                Object glEngine = glEngineMethod.invoke(null, Thread.currentThread(), Minecraft.getInstance());
+                if (glEngine != null) {
+                    FracturedUtils.LOGGER.info("[Cutscene] Created GFXEngine via GLEngine.glEngine(): " + glEngine.getClass().getName());
+                    return glEngine;
+                }
+            } catch (Throwable ignored) {}
+
+            // Builder fallback for older 3.0.0.x builds
             try {
                 Class<?> builderClass = Class.forName("org.watermedia.api.media.engines.GLEngine$Builder");
                 Constructor<?> bCtor = builderClass.getConstructor(Thread.class, java.util.concurrent.Executor.class);
@@ -573,8 +614,31 @@ public class ClientCutsceneHandler {
             }
         }
 
-        // 2. SFXEngine resolution (ALEngine.buildDefault)
+        // 2. SFXEngine resolution (MediaAPI.alEngine / ALEngine.alEngine / ALEngine.buildDefault)
         if (eName.contains("SFXEngine") || eName.contains("SfxEngine")) {
+            // MediaAPI.alEngine()
+            try {
+                Class<?> mediaApiClass = Class.forName("org.watermedia.api.media.MediaAPI");
+                Method alEngineMethod = mediaApiClass.getMethod("alEngine");
+                Object alEngine = alEngineMethod.invoke(null);
+                if (alEngine != null) {
+                    FracturedUtils.LOGGER.info("[Cutscene] Created SFXEngine via MediaAPI.alEngine(): " + alEngine.getClass().getName());
+                    return alEngine;
+                }
+            } catch (Throwable ignored) {}
+
+            // ALEngine.alEngine()
+            try {
+                Class<?> alEngineClass = Class.forName("org.watermedia.api.media.engines.ALEngine");
+                Method alEngineMethod = alEngineClass.getMethod("alEngine");
+                Object alEngine = alEngineMethod.invoke(null);
+                if (alEngine != null) {
+                    FracturedUtils.LOGGER.info("[Cutscene] Created SFXEngine via ALEngine.alEngine(): " + alEngine.getClass().getName());
+                    return alEngine;
+                }
+            } catch (Throwable ignored) {}
+
+            // ALEngine.buildDefault()
             try {
                 Class<?> alEngineClass = Class.forName("org.watermedia.api.media.engines.ALEngine");
                 Method buildDefaultMethod = alEngineClass.getMethod("buildDefault");

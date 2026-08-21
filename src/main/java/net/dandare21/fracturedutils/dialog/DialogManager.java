@@ -212,6 +212,17 @@ public class DialogManager {
         return !activeSequences.isEmpty();
     }
 
+    public boolean isSequenceRunning(String fileName) {
+        if (fileName == null || fileName.isBlank()) return isSequenceRunning();
+        String cleanName = sanitizeFileName(fileName);
+        for (DialogSequenceInstance instance : activeSequences) {
+            if (!instance.isFinished() && instance.getFileName().equalsIgnoreCase(cleanName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void tick(MinecraftServer server) {
         Iterator<DialogSequenceInstance> iterator = activeSequences.iterator();
         while (iterator.hasNext()) {

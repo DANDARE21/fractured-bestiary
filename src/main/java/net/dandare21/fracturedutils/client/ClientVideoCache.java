@@ -52,6 +52,15 @@ public class ClientVideoCache {
         }
     }
 
+    public static boolean isStreamUrl(String url) {
+        if (url == null) return false;
+        String lower = url.toLowerCase();
+        return lower.contains("youtube.com") || lower.contains("youtu.be")
+                || lower.contains("twitch.tv") || lower.contains("soundcloud.com")
+                || lower.contains("medal.tv") || lower.contains("streamable.com")
+                || lower.contains("bilibili.com") || lower.contains("tiktok.com");
+    }
+
     public static String formatDownloadUrl(String url) {
         if (url == null) return url;
         if (url.contains("drive.google.com") || url.contains("drive.usercontent.google.com")) {

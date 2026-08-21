@@ -406,6 +406,11 @@ public class ActionListWidget extends ObjectSelectionList<ActionListWidget.Actio
                     return String.format(java.util.Locale.ROOT, "Marker (%.1f, %.1f, %.1f) r=%.1fm [%s, %s, %s]", wua.getX(), wua.getY(), wua.getZ(), wua.getRadius(), reqText, markerVisText, areaText);
                 } else if (mode.equals("video") || mode.equals("video_end") || mode.equals("cutscene") || mode.equals("cinematic")) {
                     return "Wait for active video to end";
+                } else if (mode.equals("dialog") || mode.equals("dialog_end") || mode.equals("dialogs_end") || mode.equals("dialog_sequence") || mode.equals("dialog_finish")) {
+                    if (wua.getTriggerId() != null && !wua.getTriggerId().isBlank()) {
+                        return "Wait for dialog \"" + wua.getTriggerId() + "\" to end";
+                    }
+                    return "Wait for active dialog to end";
                 } else if (mode.equals("waiting_room") || mode.equals("waiting_room_end") || mode.equals("waitingroom")) {
                     return "Wait for active waiting room to end";
                 } else if (mode.equals("waiting_room_ready") || mode.equals("waiting_room_all_ready") || mode.equals("waitingroom_ready")) {

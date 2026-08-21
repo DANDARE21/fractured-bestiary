@@ -179,6 +179,8 @@ public class ObjectiveManager {
                 return String.format(Locale.ROOT, "Reach Location (X: %.0f, Y: %.0f, Z: %.0f)", wua.getX(), wua.getY(), wua.getZ());
             } else if (mode.equals("video") || mode.equals("video_end") || mode.equals("cutscene") || mode.equals("cinematic")) {
                 return "Wait for Cutscene";
+            } else if (mode.equals("dialog") || mode.equals("dialog_end") || mode.equals("dialogs_end") || mode.equals("dialog_sequence") || mode.equals("dialog_finish")) {
+                return "Wait for Dialog";
             } else if (mode.equals("waiting_room") || mode.equals("waiting_room_end") || mode.equals("waitingroom")) {
                 return "Wait in Waiting Room";
             } else if (mode.equals("waiting_room_ready") || mode.equals("waitingroom_ready")) {

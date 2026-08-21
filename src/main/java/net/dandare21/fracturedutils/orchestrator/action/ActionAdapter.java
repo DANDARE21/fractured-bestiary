@@ -54,6 +54,14 @@ public class ActionAdapter implements JsonSerializer<OrchestratorAction>, JsonDe
                 return RAW_GSON.fromJson(obj, PlayMusicSequenceAction.class);
             case "wait_until":
                 return RAW_GSON.fromJson(obj, WaitUntilAction.class);
+            case "dialog":
+            case "dialog_end":
+            case "dialogs_end":
+            case "dialog_sequence":
+            case "dialog_finish":
+                WaitUntilAction diagAction = RAW_GSON.fromJson(obj, WaitUntilAction.class);
+                diagAction.setWaitType("dialog");
+                return diagAction;
             case "proximity":
             case "marker":
             case "player_proximity":

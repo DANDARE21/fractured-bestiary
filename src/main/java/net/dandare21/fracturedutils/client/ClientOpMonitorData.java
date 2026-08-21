@@ -387,6 +387,13 @@ public class ClientOpMonitorData {
                 } else if (details.equalsIgnoreCase("video") || details.equalsIgnoreCase("video_end")
                         || details.equalsIgnoreCase("cutscene") || details.equalsIgnoreCase("cinematic")) {
                     return "Wait: Video End";
+                } else if (details.equalsIgnoreCase("dialog") || details.equalsIgnoreCase("dialog_end")
+                        || details.equalsIgnoreCase("dialogs_end") || details.equalsIgnoreCase("dialog_sequence")
+                        || details.equalsIgnoreCase("dialog_finish")) {
+                    return "Wait: Dialog End";
+                } else if (details.startsWith("dialog:")) {
+                    String file = details.substring("dialog:".length()).trim();
+                    return "Wait: Dialog (" + file + ")";
                 } else if (details.equalsIgnoreCase("waiting_room") || details.equalsIgnoreCase("waiting_room_end")
                         || details.equalsIgnoreCase("waitingroom")) {
                     return "Wait: Waiting Room";
